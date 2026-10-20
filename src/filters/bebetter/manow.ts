@@ -206,9 +206,8 @@ export const manow = bebetter({
   // a parrot raises its wings (not paws) to follow your hands
   wings: { idx: [0, 1], pivot: WING_PIVOT, tip: WING_TIP },
   // ช่างสงสัย: brows up + head tilt → ❓ + a random question sticker
-  questions: true,
   // ช่างสังเกต: lean in toward the camera → 🔍 magnifying glass + "อืมมม..."
-  observes: true,
+  specials: ["question", "observe"],
 
   face(ctx, pass, kit, f) {
     const { g, mood, level } = f;

@@ -1,4 +1,4 @@
-import { CAPTIONS, type Caption, type CaptionId } from "../captions";
+import { CAPTIONS, type Caption, type CaptionId, type SpecialId } from "../captions";
 import type { Pose } from "../anchor";
 import type { Mood } from "./emotion";
 
@@ -17,14 +17,22 @@ const LEAN = 1.22;
 const LEAN_REARM = 1.08;
 const LEAN_TAU = 2;       // s — how fast "normal distance" adapts
 
+// yay / goforit (Som)
+const YAY_HOLD = 0.3;     // s
+const GO_HOLD = 0.4;      // s
+
 /** Per-frame context from the active filter. */
 export interface GestureOpts {
-  /** this character asks questions (brows up + tilt → "question") */
-  questions?: boolean;
+  /** which special stickers this character has */
+  specials?: SpecialId[];
   /** how raised the brows are, 0…1 */
   browUp?: number;
-  /** this character reacts to leaning in toward the camera ("observe") */
-  observes?: boolean;
+  /** how many hands are raised above the chin */
+  handsUp?: number;
+  /** big smile with the mouth open */
+  laugh?: boolean;
+  /** furrowed brows + a smile (มุ่งมั่น) */
+  determined?: boolean;
 }
 
 interface Sample { t: number; pitch: number; yaw: number }
@@ -56,6 +64,8 @@ export class Gestures {
   private tiltSince: number | null = null;
   private tiltArmed = true;
   private qSince: number | null = null;
+  private yaySince: number | null = null;
+  private goSince: number | null = null;
   private sizeBase = 0;
   private leanArmed = true;
   private lastT = 0;
@@ -67,7 +77,11 @@ export class Gestures {
     this.lastMood = mood;
     const dt = Math.min(0.1, Math.max(0, t - this.lastT));
     this.lastT = t;
-    if (!pose) { this.buf = []; this.tiltSince = null; this.qSince = null; this.sizeBase = 0; return; }
+    if (!pose) {
+      this.buf = []; this.tiltSince = this.qSince = this.yaySince = this.goSince = null; this.sizeBase = 0;
+      return;
+    }
+    const has = (id: SpecialId) => opts.specials?.includes(id) ?? false;
 
     // leaning in: compare face size with a slowly-adapting "normal" size
     if (!this.sizeBase) this.sizeBase = pose.size;
@@ -80,16 +94,26 @@ export class Gestures {
 
     if (Math.abs(pose.roll) > TILT) this.tiltSince ??= t;
     else if (Math.abs(pose.roll) < TILT * 0.6) { this.tiltSince = null; this.tiltArmed = true; }
-    const asking = opts.questions && Math.abs(pose.roll) > Q_TILT && (opts.browUp ?? 0) > Q_BROWS;
+    const asking = has("question") && Math.abs(pose.roll) > Q_TILT && (opts.browUp ?? 0) > Q_BROWS;
     if (asking) this.qSince ??= t;
     else if (Math.abs(pose.roll) < Q_TILT * 0.6 || (opts.browUp ?? 0) < Q_BROWS * 0.6) this.qSince = null;
+    // Infinity = already fired; re-arms once the trigger is let go
+    const cheering = has("yay") && ((opts.handsUp ?? 0) >= 2 || !!opts.laugh);
+    if (cheering) this.yaySince ??= t; else this.yaySince = null;
+    if (has("goforit") && opts.determined) this.goSince ??= t; else this.goSince = null;
 
     if (t < this.cooldownUntil) return;
 
     const yawSw = swings(this.buf.map((s) => s.yaw), SHAKE_SWING);
     const pitchSw = swings(this.buf.map((s) => s.pitch), NOD_SWING);
     let fired: CaptionId | null = null;
-    if (opts.observes && this.leanArmed && lean > LEAN) {
+    if (this.yaySince !== null && t - this.yaySince > YAY_HOLD) {
+      fired = "yay";
+      this.yaySince = Infinity;
+    } else if (this.goSince !== null && t - this.goSince > GO_HOLD) {
+      fired = "goforit";
+      this.goSince = Infinity;
+    } else if (has("observe") && this.leanArmed && lean > LEAN) {
       fired = "observe";
       this.leanArmed = false;
     } else if (this.qSince !== null && t - this.qSince > Q_HOLD) {
@@ -116,9 +140,9 @@ export class Gestures {
     return this.active ? { id: this.active.id, age: t - this.active.start } : null;
   }
 
-  /** 0→1 envelope while the nod sticker is up (drives the cat's raised paw). */
+  /** 0→1 envelope while the nod / goforit sticker is up (drives the raised right paw). */
   paw(t: number): number {
-    if (this.active?.id !== "nod") return 0;
+    if (this.active?.id !== "nod" && this.active?.id !== "goforit") return 0;
     const age = t - this.active.start;
     return Math.min(1, age / 0.25, (DURATION - age) / 0.35);
   }

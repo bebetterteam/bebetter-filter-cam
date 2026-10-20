@@ -38,7 +38,8 @@ export class Emotion {
       surprised: g("jawOpen") > 0.3
         ? g("jawOpen") * 0.5 + Math.max(g("browInnerUp"), avg("browOuterUp")) * 0.5 + avg("eyeWide") * 0.3
         : 0,
-      angry: avg("browDown") * 0.8 + Math.max(avg("noseSneer"), avg("mouthPress")) * 0.4,
+      // furrowed brows with a smile is determination, not anger
+      angry: smile < 0.3 ? avg("browDown") * 0.8 + Math.max(avg("noseSneer"), avg("mouthPress")) * 0.4 : 0,
       sad: smile < 0.2 ? avg("mouthFrown") * 0.7 + g("browInnerUp") * 0.4 : 0,
     };
 

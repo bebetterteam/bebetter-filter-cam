@@ -1,4 +1,4 @@
-export type Kind = "heart" | "sparkle" | "star";
+export type Kind = "heart" | "sparkle" | "star" | "confetti";
 
 interface Particle {
   kind: Kind;
@@ -8,6 +8,8 @@ interface Particle {
   rot: number; vr: number;
   life: number; maxLife: number;
   color: string;
+  /** units/s² pulling down (+) or floating up (−) */
+  gravity: number;
 }
 
 const MAX = 300;
@@ -20,7 +22,7 @@ export class Particles {
     this.list.push({
       kind, x, y,
       vx: 0, vy: 0, size: 20, rot: 0, vr: 0,
-      life: 0, maxLife: 1.4, color: "#ff7fa3",
+      life: 0, maxLife: 1.4, color: "#ff7fa3", gravity: 0,
       ...opts,
     });
   }
@@ -32,7 +34,9 @@ export class Particles {
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
       if (p.kind === "heart") p.vx += Math.sin(p.life * 6 + p.size) * 30 * dt; // gentle wobble
+      else if (p.kind === "confetti") { p.vx *= 0.985; p.vy *= 0.985; } // flutters, gravity does the rest
       else { p.vx *= 0.94; p.vy *= 0.94; }
+      p.vy += p.gravity * dt;
     }
     this.list = this.list.filter((p) => p.life < p.maxLife);
   }
@@ -73,6 +77,10 @@ const SHAPES: Record<Kind, (ctx: CanvasRenderingContext2D) => void> = {
     }
     ctx.closePath();
     ctx.fill();
+  },
+  confetti(ctx) {
+    // a little paper strip; squashing with rotation makes it look like it's flipping
+    ctx.fillRect(-0.5, -0.22, 1, 0.44);
   },
   star(ctx) {
     ctx.beginPath();

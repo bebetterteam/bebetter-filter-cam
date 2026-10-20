@@ -122,10 +122,14 @@ function loop(tracker: Tracker) {
 
   emotion.update(pose ? blendshapes : null, t, dt);
   const sm = emotion.smooth;
+  const smile = ((sm.mouthSmileLeft ?? 0) + (sm.mouthSmileRight ?? 0)) / 2;
+  const browDown = ((sm.browDownLeft ?? 0) + (sm.browDownRight ?? 0)) / 2;
   gestures.update(pose, emotion.mood, t, {
-    questions: filter.questions,
-    observes: filter.observes,
+    specials: filter.specials,
     browUp: Math.max(sm.browInnerUp ?? 0, ((sm.browOuterUpLeft ?? 0) + (sm.browOuterUpRight ?? 0)) / 2),
+    handsUp: pose ? hands.filter((h) => h.y < pose!.chin.y).length : 0,
+    laugh: smile > 0.6 && (sm.jawOpen ?? 0) > 0.3,
+    determined: browDown > 0.4 && smile > 0.35,
   });
   const fxPose = pose && filter.remap ? filter.remap(pose) : pose;
   if (settings.effects) effects.update(fxPose, blendshapes, t, dt, filter.id === "none" || filter.mask ? 0 : 0.25);

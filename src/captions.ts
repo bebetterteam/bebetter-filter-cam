@@ -24,6 +24,20 @@ export const CAPTIONS: Record<string, Caption | Caption[]> = {
     { title: "เดี๋ยวนะ!", sub: "(เห็นอะไรบางอย่าง)" },
     { title: "ตรงนี้ไง!" },
   ],
+  // Som: both hands up, or a big laugh → bounce + confetti
+  yay: [
+    { title: "เย้!!", sub: "(สุดยอดดด)" },
+    { title: "ไปเลยยย!" },
+    { title: "ดีใจจัง!", sub: "(กระโดดเลย)" },
+  ],
+  // Som: furrowed brows + a smile (มุ่งมั่น) → fist pump + energy sparks
+  goforit: [
+    { title: "ลุยเลย!", sub: "(คิดทีหลัง)" },
+    { title: "จัดไป!" },
+    { title: "ได้อยู่แล้ว!", sub: "(มั้งนะ)" },
+  ],
 };
 
-export type CaptionId = "nod" | "shake" | "tilt" | "surprised" | "angry" | "sad" | "question" | "observe";
+/** Gesture stickers only some characters have. */
+export type SpecialId = "question" | "observe" | "yay" | "goforit";
+export type CaptionId = "nod" | "shake" | "tilt" | "surprised" | "angry" | "sad" | SpecialId;

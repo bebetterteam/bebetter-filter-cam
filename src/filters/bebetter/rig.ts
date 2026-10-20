@@ -1,5 +1,5 @@
 import { fromFace, inFace, type Pose, type Pt } from "../../anchor";
-import type { CaptionId } from "../../captions";
+import type { CaptionId, SpecialId } from "../../captions";
 import type { Mood } from "../../effects/emotion";
 import type { Blendshapes } from "../../tracker";
 import type { Extras, Filter } from "../types";
@@ -74,10 +74,10 @@ export interface CharacterDef {
   label: string;
   geo: Geometry;
   parts: PartAnim[];
-  /** Brows up + head tilt → "question" sticker (see effects/gestures.ts). */
-  questions?: boolean;
-  /** Lean in toward the camera → "observe" sticker. */
-  observes?: boolean;
+  /** Special gesture stickers this character reacts to (see effects/gestures.ts). */
+  specials?: SpecialId[];
+  /** Squash / stretch / hop for the whole character (pivot = bottom-center of the body). */
+  body?(f: FaceState): { sx: number; sy: number; dy: number };
   /** small-unit spots used to line up particles (hearts from the mouth etc.) */
   anchors: { mouth: V; cheekX: number; cheekY: number };
   /**
@@ -85,6 +85,8 @@ export interface CharacterDef {
    * around `pivot` (shoulder) so the wing's `tip` points at your hand.
    */
   wings?: { idx: [number, number]; pivot: [V, V]; tip: [V, V] };
+  /** Drawn last, in FRONT units but outside the squash/stretch (confetti, sparks…). */
+  overlay?(ctx: CanvasRenderingContext2D, kit: FaceKit, f: FaceState): void;
   /** Draw the face (called for both passes; draw only silhouette-affecting bits in "outline"). */
   face(ctx: CanvasRenderingContext2D, pass: Pass, kit: FaceKit, f: FaceState): void;
 }
@@ -203,6 +205,8 @@ export interface EyeState {
   heart?: boolean;
   /** shift the whole eye sideways (small units), e.g. Manow's side-eye */
   dx?: number;
+  /** 0…1 grow to the sheets' wide "wow" eye */
+  wide?: number;
 }
 
 const EYE_DX = 18, EYE_RX = 19, EYE_RY = 19.95;
@@ -233,15 +237,17 @@ export class FaceKit {
       return;
     }
     // white eyeball (pokes above the head, so it gets the sticker outline too)
+    const w = e.wide ?? 0;
+    const rx = lerp(EYE_RX, 21.8, w), ry = lerp(EYE_RY, 22.9, w), pr = lerp(6.46, 7.4, w);
     ctx.beginPath();
-    ctx.ellipse(X(cx), Y(0), EYE_RX * S, EYE_RY * S, 0, 0, Math.PI * 2);
+    ctx.ellipse(X(cx), Y(0), rx * S, ry * S, 0, 0, Math.PI * 2);
     fillOrOutline(ctx, pass, WHITE);
     if (pass === "fill") {
       ctx.save();
       ctx.clip();
       const px = cx + this.f.gx * 7, py = 0.95 + this.f.gy * 5;
       ctx.beginPath();
-      ctx.arc(X(px), Y(py), 6.46 * S, 0, Math.PI * 2);
+      ctx.arc(X(px), Y(py), pr * S, 0, Math.PI * 2);
       ctx.fillStyle = INK;
       ctx.fill();
       ctx.beginPath();
@@ -385,8 +391,7 @@ export function bebetter(def: CharacterDef): Filter {
     label: def.label,
     mask: true,
     wantsHands: true,
-    questions: def.questions,
-    observes: def.observes,
+    specials: def.specials,
 
     remap(pose: Pose): Pose {
       const f = (sx: number, sy: number) =>
@@ -424,7 +429,7 @@ export function bebetter(def: CharacterDef): Filter {
 
       // arms: cheer both when really happy, one waving paw while the "รับทราบ" sticker is up,
       // and your real raised hands override either side
-      const cheerTarget = f.mood === "happy" && f.smile > 0.7 ? 1 : 0;
+      const cheerTarget = (f.mood === "happy" && f.smile > 0.7) || f.gesture?.id === "yay" ? 1 : 0;
       anim.cheer += (cheerTarget - anim.cheer) * clamp(dt * 8);
       anim.paw += (ex.paw - anim.paw) * clamp(dt * 10);
       trackHands(pose, ex.hands ?? [], dt);
@@ -459,6 +464,14 @@ export function bebetter(def: CharacterDef): Filter {
       inFace(ctx, pose, pose.center, () => {
         ctx.scale(FIT, FIT);
         ctx.translate(-BODY_CENTER.x, -BODY_CENTER.y);
+        ctx.save();
+        if (def.body) {
+          // squash & stretch around the feet
+          const b = def.body(f);
+          ctx.translate(BODY_CENTER.x, by1 + b.dy);
+          ctx.scale(b.sx, b.sy);
+          ctx.translate(-BODY_CENTER.x, -by1);
+        }
 
         for (const pass of ["outline", "fill"] as const) {
           // back to front, like the sheet: arms, back parts, body, front parts, face
@@ -485,6 +498,8 @@ export function bebetter(def: CharacterDef): Filter {
           if (armL.front) arm(ctx, pass, geo, geo.ARM_L, armL.target, armL.k, 0);
           if (armR.front) arm(ctx, pass, geo, geo.ARM_R, armR.target, armR.k, 0);
         }
+        ctx.restore();
+        def.overlay?.(ctx, kit, f);
       });
     },
   };

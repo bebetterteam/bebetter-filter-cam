@@ -44,6 +44,29 @@ The beak is a redraw in the sheet's style (the sheet's flat-topped beak read odd
 | **Lean in toward the camera** (quickly) | 🔍 **observes** — holds a magnifying glass to one eye, squints the other, sticker อืมมม... / น่าสนใจ... (`observe` in `src/captions.ts`) |
 | **Raise your brows + tilt your head** (hold ~½ s) | ❓ **asks a question** — a ❓ pops above the crest and a random question sticker shows (เดี๋ยวนะ...? / แล้วถ้า...? / ทำไมล่ะ? …, edit them in `src/captions.ts` → `question`) |
 
+## 🐶 Som (mask over your face)
+Som the dog (`public/ref/BeBetter_sheet_Som.svg`): "พลังเยอะ ลองก่อนคิด ตัวทำพัง". The 10 expressions from the sheet:
+
+| Your face | Som's expression |
+|---|---|
+| Normal | happy (wide grin) |
+| Big smile | ตื่นเต้น · eyes closed + smile → ฟิน · blink → bliss |
+| Open your mouth | wow · wide → ตะโกน |
+| Raise your brows (no smile) | worry + sweat drop · with the mouth a little open → งง |
+| Furrow your brows **and** smile | มุ่งมั่น |
+| Sad face | เศร้า |
+| **Raise your hand(s)** | the paw follows your hand |
+
+**Ears + tail show the mood:** excited → ears flip up and flap, the tail spins like a propeller · sad/worried → ears droop, tail hangs low.
+
+**Special moves**
+| Do this | Som does |
+|---|---|
+| 🎉 **Raise both hands** or **laugh big** (hold ~⅓ s) | bounces (squash → jump → land → little hop, like the sheet's กระโดด/ยุบตัว poses), arms up, confetti, sticker เย้!! / ไปเลยยย! / ดีใจจัง! |
+| 🔥 **Furrow your brows + smile** (hold ~½ s) | มุ่งมั่น face, fist pump, energy sparks rising, sticker ลุยเลย! / จัดไป! / ได้อยู่แล้ว! |
+
+Edit the wording in `src/captions.ts` → `yay` / `goforit`.
+
 ### Adding another BeBetter character
 All BeBetter sheets share one template, so a new one is mostly generated:
 ```bash
@@ -68,7 +91,7 @@ then add a small `src/filters/bebetter/<name>.ts` (its moving parts + face) like
 | Raise your eyebrows | ⭐ stars above your head |
 
 ## Keyboard shortcuts
-`1`–`7` switch filters (Bee / Manow / cat / dog / bunny / bear / none) · `E` turn effects on/off · `M` mirror left/right · `H` meeting mode (hides the UI)
+`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `M` mirror left/right · `H` meeting mode (hides the UI)
 
 URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1`
 

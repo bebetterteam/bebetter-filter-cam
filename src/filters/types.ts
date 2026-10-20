@@ -1,6 +1,6 @@
 import type { Pose, Pt } from "../anchor";
 import type { Mood } from "../effects/emotion";
-import type { CaptionId } from "../captions";
+import type { CaptionId, SpecialId } from "../captions";
 import type { Blendshapes } from "../tracker";
 
 export interface Extras {
@@ -24,10 +24,8 @@ export interface Filter {
   mask?: boolean;
   /** Load hand tracking for this filter (e.g. arms that follow your real hands). */
   wantsHands?: boolean;
-  /** Brows up + head tilt → a "question" sticker (Manow). */
-  questions?: boolean;
-  /** Lean in toward the camera → an "observe" sticker (Manow). */
-  observes?: boolean;
+  /** Character-specific gesture stickers (question, observe, yay, goforit). */
+  specials?: SpecialId[];
   /** Move feature points to where this filter draws them, so particles (hearts, sparkles) line up. */
   remap?(pose: Pose): Pose;
   /** Everything draws on top of the video (there's no segmentation to go behind the face). */
