@@ -1,0 +1,27 @@
+import type { Pose } from "../anchor";
+import type { Mood } from "../effects/emotion";
+import type { Blendshapes } from "../tracker";
+
+export interface Extras {
+  mood: Mood;
+  /** 0→1 fade-in of the current mood */
+  moodLevel: number;
+  /** 0→1 how far the "nod" paw is raised */
+  paw: number;
+  mirror: boolean;
+}
+
+export interface Filter {
+  id: string;
+  icon: string;
+  label: string;
+  /** Covers the whole face (skip the global cheek blush). */
+  mask?: boolean;
+  /** Move feature points to where this filter draws them, so particles (hearts, sparkles) line up. */
+  remap?(pose: Pose): Pose;
+  /** Everything draws on top of the video (there's no segmentation to go behind the face). */
+  draw(ctx: CanvasRenderingContext2D, pose: Pose, bs: Blendshapes, t: number, extras: Extras): void;
+}
+
+export const OUTLINE = "#5a3a2e";
+export const LINE = 0.018; // stroke width in face units
