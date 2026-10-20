@@ -24,6 +24,7 @@ Bee the cat from the BeBetter character sheet (`public/ref/BeBetter_sheet_Bee.sv
 | Pucker your lips | hearts (heart eyes) |
 | Frown / furrow your brows | angry (หงุดหงิด) |
 | Sad face | sad (เศร้า) |
+| **Raise your hand(s)** | Bee's paw follows your real hand (hand tracking, loads only for Bee) |
 
 **Sticker labels from gestures** (edit the wording in `src/captions.ts`):
 | Gesture | Label |

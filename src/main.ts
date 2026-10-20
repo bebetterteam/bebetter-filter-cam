@@ -1,11 +1,11 @@
 import "./style.css";
-import { PoseSmoother, poseFromLandmarks, type Pose } from "./anchor";
+import { PoseSmoother, poseFromLandmarks, type Pose, type Pt } from "./anchor";
 import { listCameras, openCamera, pickDefaultCamera } from "./camera";
 import { Emotion } from "./effects/emotion";
 import { Gestures } from "./effects/gestures";
 import { Effects } from "./effects/triggers";
 import { FILTERS } from "./filters";
-import { Tracker, type Blendshapes } from "./tracker";
+import { HandTracker, Tracker, type Blendshapes } from "./tracker";
 import { buildUi, loadSettings, renderUi, saveSettings } from "./ui";
 
 const canvas = document.getElementById("out") as HTMLCanvasElement;
@@ -75,6 +75,20 @@ function showError(err: unknown) {
     `😿 เกิดข้อผิดพลาด: ${(err as Error)?.message ?? err}`;
 }
 
+// hand tracking is loaded lazily, only when a filter wants it (it costs extra CPU/GPU)
+let handTracker: HandTracker | null = null;
+let handLoading = false;
+let hands: Pt[] = [];
+let handTick = 0;
+
+function ensureHands() {
+  if (handTracker || handLoading) return;
+  handLoading = true;
+  HandTracker.create()
+    .then((h) => (handTracker = h))
+    .catch((err) => console.warn("[CuteCam] hand tracking unavailable", err));
+}
+
 let lastVideoTime = -1;
 let lastFrame = performance.now();
 let frames = 0, fpsT = performance.now();
@@ -86,8 +100,14 @@ function loop(tracker: Tracker) {
   const t = now / 1000;
   const W = canvas.width, H = canvas.height;
 
+  const filter = FILTERS.find((f) => f.id === settings.filter) ?? FILTERS[0];
+  if (filter.wantsHands) ensureHands();
+  else hands = [];
+
   if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
+    // hands every other frame is plenty for arm poses
+    if (filter.wantsHands && handTracker && handTick++ % 2 === 0) hands = handTracker.detect(video, now, W, H);
     const res = tracker.detect(video, now);
     if (res) {
       pose = smoother.update(poseFromLandmarks(res.landmarks, W, H));
@@ -100,7 +120,6 @@ function loop(tracker: Tracker) {
     }
   }
 
-  const filter = FILTERS.find((f) => f.id === settings.filter) ?? FILTERS[0];
   emotion.update(pose ? blendshapes : null, t, dt);
   gestures.update(pose, emotion.mood, t);
   const fxPose = pose && filter.remap ? filter.remap(pose) : pose;
@@ -112,7 +131,7 @@ function loop(tracker: Tracker) {
   if (settings.effects && !filter.mask) effects.drawBlush(ctx, fxPose);
   if (pose) {
     filter.draw(ctx, pose, emotion.smooth, t, {
-      mood: emotion.mood, moodLevel: emotion.level, paw: gestures.paw(t), mirror,
+      mood: emotion.mood, moodLevel: emotion.level, paw: gestures.paw(t), mirror, hands,
     });
   }
   if (settings.effects) effects.draw(ctx);

@@ -1,4 +1,4 @@
-import { fromFace, inFace, type Pose } from "../anchor";
+import { fromFace, inFace, type Pose, type Pt } from "../anchor";
 import type { Blendshapes } from "../tracker";
 import { ARM_L, ARM_R, BODY, EAR_L, EAR_R, ORIGIN, TAIL, TAIL_STRIPES } from "./bee-geometry";
 import type { Extras, Filter } from "./types";
@@ -86,25 +86,44 @@ function ear(ctx: CanvasRenderingContext2D, pass: Pass, path: Path2D, pivot: [nu
 
 type Arm = typeof ARM_L | typeof ARM_R;
 
-/** Rubber-hose arm from the cheer pose; `raise` 0 = tucked behind the body, 1 = fully up. */
-function arm(ctx: CanvasRenderingContext2D, pass: Pass, a: Arm, raise: number, wave: number) {
-  if (raise <= 0.02) return;
+type V = [number, number];
+const ARM_REACH = 1.25; // how far an arm may stretch toward your hand, × the sheet's arm length
+
+/**
+ * Rubber-hose arm based on the sheet's cheer pose, re-aimed at `target` (FRONT coords).
+ * `k` 0 = tucked behind the body, 1 = reaching the target. The sheet's curve and paw are
+ * rotated/stretched as a whole so the arm keeps its shape whichever way it points.
+ */
+function arm(ctx: CanvasRenderingContext2D, pass: Pass, a: Arm, target: V, k: number, wave: number) {
+  if (k <= 0.02) return;
   const [sx, sy] = a.start;
+  const len0 = Math.hypot(a.end[0] - sx, a.end[1] - sy);
+  let tx = target[0] - sx, ty = target[1] - sy;
+  const want = Math.hypot(tx, ty);
+  if (want > len0 * ARM_REACH) { tx *= (len0 * ARM_REACH) / want; ty *= (len0 * ARM_REACH) / want; }
+  if (Math.hypot(tx, ty) < 1) return;
+  const ang = Math.atan2(ty, tx) - Math.atan2(a.end[1] - sy, a.end[0] - sx);
+  const sc = (Math.hypot(tx, ty) / len0) * k;
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const rot = (x: number, y: number): V => [x * c - y * s, x * s + y * c];
+  const along = (p: readonly number[]): V => { const [x, y] = rot(p[0] - sx, p[1] - sy); return [sx + x * sc, sy + y * sc]; };
+  const [ex, ey] = along(a.end);
+  const [cx, cy] = along(a.ctrl);
+  /** paw parts keep their size, just rotate with the arm */
+  const atPaw = (p: readonly number[]): V => { const [x, y] = rot(p[0] - a.end[0], p[1] - a.end[1]); return [ex + x, ey + y]; };
+
   ctx.save();
   ctx.translate(sx, sy);
   ctx.rotate(wave);
   ctx.translate(-sx, -sy);
-  const cx = lerp(sx, a.ctrl[0], raise), cy = lerp(sy, a.ctrl[1], raise);
-  const ex = lerp(sx, a.end[0], raise), ey = lerp(sy, a.end[1], raise);
   ctx.beginPath();
   ctx.moveTo(sx, sy);
   ctx.quadraticCurveTo(cx, cy, ex, ey);
   strokeLine(ctx, pass, MAIN, 70.1, "round");
 
-  const dx = ex - a.end[0], dy = ey - a.end[1];
-  const [px, py, pr] = a.paw;
+  const [px, py] = atPaw(a.paw);
   ctx.beginPath();
-  ctx.arc(px + dx, py + dy, pr, 0, Math.PI * 2);
+  ctx.arc(px, py, a.paw[2], 0, Math.PI * 2);
   if (pass === "outline") {
     ctx.fillStyle = WHITE;
     ctx.fill();
@@ -115,9 +134,10 @@ function arm(ctx: CanvasRenderingContext2D, pass: Pass, a: Arm, raise: number, w
     ctx.fillStyle = MAIN;
     ctx.fill();
     ctx.fillStyle = SHADE;
-    for (const [qx, qy, qr] of a.pads) {
+    for (const pad of a.pads) {
+      const [qx, qy] = atPaw(pad);
       ctx.beginPath();
-      ctx.arc(qx + dx, qy + dy, qr, 0, Math.PI * 2);
+      ctx.arc(qx, qy, pad[2], 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -298,7 +318,45 @@ function mouth(ctx: CanvasRenderingContext2D, kind: MouthShape, jaw: number, fli
 }
 
 // smoothed animation state (arms, lids) — module-level is fine: one face, one filter instance
-const anim = { cheer: 0, paw: 0, last: 0 };
+const anim = {
+  cheer: 0, paw: 0, last: 0,
+  // per side (image-left / image-right): smoothed hand target in FRONT coords + how raised it is
+  hand: [{ x: 0, y: 0, vis: 0 }, { x: 0, y: 0, vis: 0 }],
+};
+
+/** A raised hand counts once it's above about chin height (FRONT y, ≈ face center + 0.45 face). */
+const HAND_RAISED_Y = BODY_CENTER.y + 0.45 / FIT;
+
+/** Is a FRONT-coords point over the body? (then the arm goes in front, e.g. waving in front of your face) */
+const overBody = ([x, y]: V) =>
+  ((x - BODY_CENTER.x) / (BODY_W / 2)) ** 2 + ((y - BODY_CENTER.y) / ((1472.14 - 781.99) / 2)) ** 2 < 0.75;
+
+/** canvas px → FRONT coords (inverse of the face transform used in draw) */
+function toFront(pose: Pose, p: Pt): V {
+  const dx = p.x - pose.center.x, dy = p.y - pose.center.y;
+  const c = Math.cos(pose.roll), s = Math.sin(pose.roll);
+  const u = (dx * c + dy * s) / pose.size, v = (-dx * s + dy * c) / pose.size;
+  return [u / FIT + BODY_CENTER.x, v / FIT + BODY_CENTER.y];
+}
+
+function trackHands(pose: Pose, hands: Pt[], dt: number) {
+  const pts = hands.map((h) => toFront(pose, h));
+  [0, 1].forEach((side) => {
+    // each side takes the highest hand on its half of the body
+    const mine = pts
+      .filter(([x]) => (side === 0 ? x < BODY_CENTER.x : x >= BODY_CENTER.x))
+      .sort((p, q) => p[1] - q[1])[0];
+    const st = anim.hand[side];
+    const raised = mine && mine[1] < HAND_RAISED_Y;
+    if (raised) {
+      if (st.vis < 0.05) { st.x = mine[0]; st.y = mine[1]; } // snap when it first appears
+      const k = clamp(dt * 16);
+      st.x += (mine[0] - st.x) * k;
+      st.y += (mine[1] - st.y) * k;
+    }
+    st.vis += ((raised ? 1 : 0) - st.vis) * clamp(dt * (raised ? 12 : 6));
+  });
+}
 
 function pickMouth(g: (k: string) => number): { kind: MouthShape; flip: boolean } {
   const jaw = g("jawOpen");
@@ -315,6 +373,7 @@ export const bee: Filter = {
   icon: "🐾",
   label: "บี",
   mask: true,
+  wantsHands: true,
 
   remap(pose: Pose): Pose {
     const at = pose.center;
@@ -345,6 +404,16 @@ export const bee: Filter = {
     const cheerTarget = mood === "happy" && smile > 0.7 ? 1 : 0;
     anim.cheer += (cheerTarget - anim.cheer) * clamp(dt * 8);
     anim.paw += (ex.paw - anim.paw) * clamp(dt * 10);
+    trackHands(pose, ex.hands ?? [], dt);
+    const [hl, hr] = anim.hand;
+    // your real hand wins over the gesture/cheer arm on that side
+    const armL = hl.vis > anim.cheer
+      ? { target: [hl.x, hl.y] as V, k: hl.vis, wave: 0, front: overBody([hl.x, hl.y]) }
+      : { target: ARM_L.end as unknown as V, k: anim.cheer, wave: 1, front: false };
+    const rRaise = Math.max(anim.cheer, anim.paw);
+    const armR = hr.vis > rRaise
+      ? { target: [hr.x, hr.y] as V, k: hr.vis, wave: 0, front: overBody([hr.x, hr.y]) }
+      : { target: ARM_R.end as unknown as V, k: rRaise, wave: 1, front: false };
 
     const { kind, flip } = pickMouth(g);
     const lidFor = (blink: number) => {
@@ -373,8 +442,8 @@ export const bee: Filter = {
 
       for (const pass of ["outline", "fill"] as const) {
         // back to front, like the sheet: arms, tail, ears, body, face
-        arm(ctx, pass, ARM_L, anim.cheer, -wave * anim.cheer);
-        arm(ctx, pass, ARM_R, Math.max(anim.cheer, anim.paw), wave * Math.max(anim.cheer, anim.paw * 2));
+        if (!armL.front) arm(ctx, pass, ARM_L, armL.target, armL.k, -wave * armL.wave * anim.cheer);
+        if (!armR.front) arm(ctx, pass, ARM_R, armR.target, armR.k, wave * armR.wave * Math.max(anim.cheer, anim.paw * 2));
         tail(ctx, pass, wag);
         ear(ctx, pass, earL, [428.9, 840.15], -twitch * 0.15);
         ear(ctx, pass, earR, [656.9, 840.15], 0);
@@ -396,6 +465,12 @@ export const bee: Filter = {
       ctx.fill();
       mouth(ctx, kind, g("jawOpen"), flip);
       ctx.restore();
+
+      // a hand held in front of you → that paw comes in front of the body (and face)
+      for (const pass of ["outline", "fill"] as const) {
+        if (armL.front) arm(ctx, pass, ARM_L, armL.target, armL.k, 0);
+        if (armR.front) arm(ctx, pass, ARM_R, armR.target, armR.k, 0);
+      }
     });
   },
 };

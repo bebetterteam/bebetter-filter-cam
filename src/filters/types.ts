@@ -1,4 +1,4 @@
-import type { Pose } from "../anchor";
+import type { Pose, Pt } from "../anchor";
 import type { Mood } from "../effects/emotion";
 import type { Blendshapes } from "../tracker";
 
@@ -9,6 +9,8 @@ export interface Extras {
   /** 0→1 how far the "nod" paw is raised */
   paw: number;
   mirror: boolean;
+  /** Palm centers in canvas px (same space as the pose) — only filled for filters with `wantsHands`. */
+  hands: Pt[];
 }
 
 export interface Filter {
@@ -17,6 +19,8 @@ export interface Filter {
   label: string;
   /** Covers the whole face (skip the global cheek blush). */
   mask?: boolean;
+  /** Load hand tracking for this filter (e.g. arms that follow your real hands). */
+  wantsHands?: boolean;
   /** Move feature points to where this filter draws them, so particles (hearts, sparkles) line up. */
   remap?(pose: Pose): Pose;
   /** Everything draws on top of the video (there's no segmentation to go behind the face). */
