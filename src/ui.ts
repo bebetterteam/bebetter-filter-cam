@@ -9,7 +9,7 @@ export interface Settings {
 }
 
 export function loadSettings(): Settings {
-  const defaults: Settings = { filter: "bluecat", effects: true, camera: null };
+  const defaults: Settings = { filter: "bee", effects: true, camera: null };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {

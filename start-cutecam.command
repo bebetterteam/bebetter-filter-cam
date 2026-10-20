@@ -6,7 +6,7 @@
 cd "$(dirname "$0")" || exit 1
 
 PORT=5173
-URL="http://127.0.0.1:$PORT/?clean=1&filter=bluecat"
+URL="http://127.0.0.1:$PORT/?clean=1&filter=bee"
 PROFILE="$HOME/Library/Application Support/CuteCam/chrome"   # own profile → remembers camera permission
 LOG="${TMPDIR:-/tmp}/cutecam-server.log"
 CHROME="/Applications/Google Chrome.app"
@@ -56,7 +56,7 @@ cleanup() {
 trap cleanup EXIT INT TERM HUP
 
 # 2) meeting-mode window (separate Chrome instance; flags keep it rendering when covered)
-say_step "เปิดหน้าต่างแมวฟ้า…"
+say_step "เปิดหน้าต่างน้องบี…"
 mkdir -p "$PROFILE"
 open -na "$CHROME" --args \
   --app="$URL" \
