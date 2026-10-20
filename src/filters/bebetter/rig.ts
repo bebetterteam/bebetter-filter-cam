@@ -1,4 +1,5 @@
 import { fromFace, inFace, type Pose, type Pt } from "../../anchor";
+import type { CaptionId } from "../../captions";
 import type { Mood } from "../../effects/emotion";
 import type { Blendshapes } from "../../tracker";
 import type { Extras, Filter } from "../types";
@@ -52,14 +53,19 @@ export interface FaceState {
   gx: number;
   gy: number;
   t: number;
+  /** the canvas is mirrored — un-flip any text you draw */
+  mirror: boolean;
+  /** gesture sticker currently showing, e.g. "question" */
+  gesture: { id: CaptionId; age: number } | null;
 }
 
-/** A part (prims in BACK or FRONT) that rotates around a pivot, e.g. a wagging tail. */
+/** A part (prims in BACK or FRONT) that rotates (and optionally scales) around a pivot, e.g. a wagging tail. */
 export interface PartAnim {
   layer: "back" | "front";
   idx: number[];
   pivot: V;
   angle(f: FaceState): number;
+  scale?(f: FaceState): number;
 }
 
 export interface CharacterDef {
@@ -68,6 +74,10 @@ export interface CharacterDef {
   label: string;
   geo: Geometry;
   parts: PartAnim[];
+  /** Brows up + head tilt → "question" sticker (see effects/gestures.ts). */
+  questions?: boolean;
+  /** Lean in toward the camera → "observe" sticker. */
+  observes?: boolean;
   /** small-unit spots used to line up particles (hearts from the mouth etc.) */
   anchors: { mouth: V; cheekX: number; cheekY: number };
   /**
@@ -342,12 +352,14 @@ export function bebetter(def: CharacterDef): Filter {
     });
   }
 
-  type Turn = { pivot: V; angle: number };
+  type Turn = { pivot: V; angle: number; scale?: number };
   function layer(ctx: CanvasRenderingContext2D, pass: Pass, which: "back" | "front", prims: Prim[], f: FaceState,
                  extra?: Map<number, Turn>) {
     const turns = new Map<number, Turn[]>();
     const add = (i: number, t: Turn) => turns.set(i, [...(turns.get(i) ?? []), t]);
-    for (const p of def.parts) if (p.layer === which) for (const i of p.idx) add(i, { pivot: p.pivot, angle: p.angle(f) });
+    for (const p of def.parts) {
+      if (p.layer === which) for (const i of p.idx) add(i, { pivot: p.pivot, angle: p.angle(f), scale: p.scale?.(f) });
+    }
     extra?.forEach((t, i) => add(i, t));
     prims.forEach((prim, i) => {
       const ts = turns.get(i);
@@ -356,6 +368,7 @@ export function bebetter(def: CharacterDef): Filter {
       for (const t of ts) {
         ctx.translate(t.pivot[0], t.pivot[1]);
         ctx.rotate(t.angle);
+        if (t.scale !== undefined) ctx.scale(t.scale, t.scale);
         ctx.translate(-t.pivot[0], -t.pivot[1]);
       }
       drawPrim(ctx, pass, prim);
@@ -372,6 +385,8 @@ export function bebetter(def: CharacterDef): Filter {
     label: def.label,
     mask: true,
     wantsHands: true,
+    questions: def.questions,
+    observes: def.observes,
 
     remap(pose: Pose): Pose {
       const f = (sx: number, sy: number) =>
@@ -396,6 +411,8 @@ export function bebetter(def: CharacterDef): Filter {
       anim.last = t;
       const f: FaceState = {
         g, t,
+        mirror: ex.mirror,
+        gesture: ex.gesture,
         mood: ex.mood,
         level: ex.moodLevel,
         smile: (g("mouthSmileLeft") + g("mouthSmileRight")) / 2,

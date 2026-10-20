@@ -121,7 +121,12 @@ function loop(tracker: Tracker) {
   }
 
   emotion.update(pose ? blendshapes : null, t, dt);
-  gestures.update(pose, emotion.mood, t);
+  const sm = emotion.smooth;
+  gestures.update(pose, emotion.mood, t, {
+    questions: filter.questions,
+    observes: filter.observes,
+    browUp: Math.max(sm.browInnerUp ?? 0, ((sm.browOuterUpLeft ?? 0) + (sm.browOuterUpRight ?? 0)) / 2),
+  });
   const fxPose = pose && filter.remap ? filter.remap(pose) : pose;
   if (settings.effects) effects.update(fxPose, blendshapes, t, dt, filter.id === "none" || filter.mask ? 0 : 0.25);
 
@@ -131,7 +136,7 @@ function loop(tracker: Tracker) {
   if (settings.effects && !filter.mask) effects.drawBlush(ctx, fxPose);
   if (pose) {
     filter.draw(ctx, pose, emotion.smooth, t, {
-      mood: emotion.mood, moodLevel: emotion.level, paw: gestures.paw(t), mirror, hands,
+      mood: emotion.mood, moodLevel: emotion.level, paw: gestures.paw(t), mirror, hands, gesture: gestures.current(t),
     });
   }
   if (settings.effects) effects.draw(ctx);

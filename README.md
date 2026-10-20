@@ -27,7 +27,8 @@ Bee the cat from the BeBetter character sheet (`public/ref/BeBetter_sheet_Bee.sv
 | **Raise your hand(s)** | Bee's paw follows your real hand (hand tracking, loads only for Bee) |
 
 ## 🦜 Manow (mask over your face)
-Manow the parrot (`public/ref/BeBetter_sheet_Manow.svg`): crest, wings, tail and feet from the sheet; crest sways, wings flap and tail wags when happy.
+Manow the parrot (`public/ref/BeBetter_sheet_Manow.svg`): crest, wings, tail and feet from the sheet; wings flap and tail wags when happy.
+**The crest shows the mood** like a real parrot's: spikes up when surprised/angry, flattens when sad/sleepy, the middle feather hooks when curious.
 The beak is a redraw in the sheet's style (the sheet's flat-topped beak read oddly on camera): a hooked upper beak plus a lower mandible that opens with your jaw.
 
 | Your face | Manow's expression |
@@ -40,6 +41,8 @@ The beak is a redraw in the sheet's style (the sheet's flat-topped beak read odd
 | Look hard to one side | เหล่มอง (side-eye) |
 | Frown / sad face | หงุดหงิด / เศร้า |
 | **Raise your hand(s)** | the **wing** on that side points at your hand (a parrot has no paws) |
+| **Lean in toward the camera** (quickly) | 🔍 **observes** — holds a magnifying glass to one eye, squints the other, sticker อืมมม... / น่าสนใจ... (`observe` in `src/captions.ts`) |
+| **Raise your brows + tilt your head** (hold ~½ s) | ❓ **asks a question** — a ❓ pops above the crest and a random question sticker shows (เดี๋ยวนะ...? / แล้วถ้า...? / ทำไมล่ะ? …, edit them in `src/captions.ts` → `question`) |
 
 ### Adding another BeBetter character
 All BeBetter sheets share one template, so a new one is mostly generated:
