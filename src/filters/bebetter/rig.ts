@@ -70,7 +70,6 @@ export interface PartAnim {
 
 export interface CharacterDef {
   id: string;
-  icon: string;
   label: string;
   geo: Geometry;
   parts: PartAnim[];
@@ -387,8 +386,8 @@ export function bebetter(def: CharacterDef): Filter {
 
   return {
     id: def.id,
-    icon: def.icon,
     label: def.label,
+    accent: geo.MAIN,
     mask: true,
     wantsHands: true,
     specials: def.specials,

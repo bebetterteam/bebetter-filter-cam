@@ -4,26 +4,94 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cute Cam</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>" />
+    <meta name="description" content="ฟิลเตอร์ตัวละคร BeBetter ที่ขยับตามหน้าและมือ ส่งเข้า Discord / Teams ผ่าน OBS Virtual Camera" />
+    <meta name="theme-color" content="#F4F2ED" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231A1A1A'/%3E%3Cellipse cx='16' cy='20' rx='6.5' ry='5.5' fill='%23F4F2ED'/%3E%3Ccircle cx='9' cy='13' r='2.6' fill='%23F4F2ED'/%3E%3Ccircle cx='13.5' cy='9' r='2.6' fill='%23F4F2ED'/%3E%3Ccircle cx='18.5' cy='9' r='2.6' fill='%23F4F2ED'/%3E%3Ccircle cx='23' cy='13' r='2.6' fill='%23F4F2ED'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Mitr:wght@500;700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="stage">
-      <canvas id="out" width="1280" height="720"></canvas>
-      <div id="status">กำลังโหลด…</div>
-      <div id="fps"></div>
-    </div>
-    <div id="bar">
-      <div id="filters"></div>
-      <div class="controls">
-        <button id="fx" title="เปิด/ปิด effect (E)">✨ Effects</button>
-        <button id="mirror" title="กลับซ้าย-ขวา (M)">↔ Mirror</button>
-        <select id="camera" title="เลือกกล้อง"></select>
-        <button id="hide" title="ซ่อน UI สำหรับ OBS (H)">🙈 Meeting mode</button>
+    <a class="skip" href="#filters">ข้ามไปที่การเลือกตัวละคร</a>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><ellipse cx="16" cy="20" rx="6.5" ry="5.5" /><circle cx="9" cy="13" r="2.6" /><circle cx="13.5" cy="9" r="2.6" /><circle cx="18.5" cy="9" r="2.6" /><circle cx="23" cy="13" r="2.6" /></svg>
+        </span>
+        <div>
+          <h1>Cute Cam</h1>
+          <p>ฟิลเตอร์ตัวละครสำหรับประชุมออนไลน์</p>
+        </div>
       </div>
-    </div>
+      <div id="fps" class="live" data-face="0" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span><span class="txt">กำลังเริ่ม</span>
+      </div>
+    </header>
+
+    <main class="studio">
+      <section class="stage" aria-label="ภาพจากกล้องพร้อมฟิลเตอร์">
+        <canvas id="out" width="1280" height="720"></canvas>
+        <div id="status" class="status" data-kind="loading" role="status">
+          <span class="spin" aria-hidden="true"></span>
+          <svg class="alert" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>
+          <span class="msg">กำลังโหลด</span>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="ตั้งค่า">
+        <section>
+          <h2>ตัวละคร</h2>
+          <div id="filters" class="tray" role="group" aria-label="เลือกตัวละคร"></div>
+        </section>
+
+        <section>
+          <h2>ตัวเลือก</h2>
+          <div class="toggles">
+            <button id="fx" class="toggle" role="switch" aria-checked="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3.5l1.7 4.8 4.8 1.7-4.8 1.7L11 16.5l-1.7-4.8L4.5 10l4.8-1.7z" /><path d="M18 14.5v5M15.5 17h5" /></svg>
+              <span class="label">เอฟเฟกต์<small>หัวใจ ประกาย แก้มชมพู</small></span>
+              <kbd>E</kbd><span class="sw" aria-hidden="true"></span>
+            </button>
+            <button id="captions" class="toggle" role="switch" aria-checked="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8.5L6 20v-3.5H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" /><path d="M8 9.5h8M8 12.5h5" /></svg>
+              <span class="label">ป้ายข้อความ<small>รับทราบ · เย้!! · เดี๋ยวนะ...?</small></span>
+              <kbd>T</kbd><span class="sw" aria-hidden="true"></span>
+            </button>
+            <button id="mirror" class="toggle" role="switch" aria-checked="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18" stroke-dasharray="2 2.5" /><path d="M8 8l-4 4 4 4M16 8l4 4-4 4" /></svg>
+              <span class="label">กระจก<small>กลับภาพซ้าย-ขวา</small></span>
+              <kbd>M</kbd><span class="sw" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <label class="select">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.8-2h5.4l1.8 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" /><circle cx="12" cy="12.8" r="3.4" /></svg>
+            <select id="camera" aria-label="เลือกกล้อง"></select>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5" /></svg>
+          </label>
+        </section>
+
+        <button id="guide-open" class="secondary">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a1.5 1.5 0 0 0-1.5-1.5h-5A1.5 1.5 0 0 1 4 17z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 0 20 17z" /></svg>
+          <span>วิธีเล่นท่า<small>บี · มะนาว · ส้ม ทำหน้ายังไงได้ท่าอะไร</small></span>
+          <kbd>G</kbd>
+        </button>
+
+        <div class="cta">
+          <button id="hide" class="primary">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2" /><path d="M8.5 20h7M12 16.5V20" /><circle cx="12" cy="10.5" r="2" /></svg>
+            <span>เข้าโหมดประชุม</span>
+            <kbd>H</kbd>
+          </button>
+          <p class="hint">ซ่อนแผงทั้งหมด เหลือแค่ภาพ ให้ OBS จับไปเป็นกล้อง · กด H อีกครั้งเพื่อกลับ</p>
+        </div>
+      </aside>
+    </main>
+
+    <div id="guide" class="guide"></div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

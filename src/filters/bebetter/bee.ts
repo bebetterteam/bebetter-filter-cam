@@ -64,54 +64,58 @@ function mouth(ctx: CanvasRenderingContext2D, kit: FaceKit, kind: MouthShape, fl
   ctx.restore();
 }
 
-export const bee = bebetter({
-  id: "bee",
-  icon: "🐾",
-  label: "บี",
-  geo: geometry,
-  anchors: { mouth: [8, 40], cheekX: 38, cheekY: 30 },
-  parts: [
-    // tail + its 3 stripes wag around the tail's base
-    { layer: "back", idx: [0, 1, 2, 3], pivot: [822.2, 1344.6],
-      angle: (f) => Math.sin(f.t * (1.6 + (f.mood === "happy" ? f.level * 3 : 0))) * 0.07 },
-    // left ear twitches now and then
-    { layer: "back", idx: [4, 5], pivot: [428.9, 840.15],
-      angle: (f) => -Math.max(0, Math.sin(f.t * 0.7) - 0.96) * 0.9 },
-  ],
+/** A Bee instance (the move guide draws its own so it never disturbs the live one). */
+export function makeBee() {
+  return bebetter({
+    id: "bee",
+    label: "บี",
+    geo: geometry,
+    anchors: { mouth: [8, 40], cheekX: 38, cheekY: 30 },
+    parts: [
+      // tail + its 3 stripes wag around the tail's base
+      { layer: "back", idx: [0, 1, 2, 3], pivot: [822.2, 1344.6],
+        angle: (f) => Math.sin(f.t * (1.6 + (f.mood === "happy" ? f.level * 3 : 0))) * 0.07 },
+      // left ear twitches now and then
+      { layer: "back", idx: [4, 5], pivot: [428.9, 840.15],
+        angle: (f) => -Math.max(0, Math.sin(f.t * 0.7) - 0.96) * 0.9 },
+    ],
 
-  face(ctx, pass, kit, f) {
-    const { g, mood, level } = f;
-    const { X, Y, S } = kit;
-    const { kind, flip } = pickMouth(g);
-    const lidFor = (blink: number) => {
-      let lid = clamp((blink - 0.2) / 0.4);
-      if (mood === "sad") lid = Math.max(lid, level);
-      if (kind === "smirk") lid = 1;
-      return lid;
-    };
-    const heart = g("mouthPucker") > 0.55 && f.jaw < 0.15;
-    const sleepy = mood === "sleepy";
-    // bliss: the sheet's closed-eye arc, nudged down 12 units so it reads on the blue head
-    // instead of vanishing against the same-colored ears
-    const bliss = (cx: number) => {
-      const dy = 12;
+    face(ctx, pass, kit, f) {
+      const { g, mood, level } = f;
+      const { X, Y, S } = kit;
+      const { kind, flip } = pickMouth(g);
+      const lidFor = (blink: number) => {
+        let lid = clamp((blink - 0.2) / 0.4);
+        if (mood === "sad") lid = Math.max(lid, level);
+        if (kind === "smirk") lid = 1;
+        return lid;
+      };
+      const heart = g("mouthPucker") > 0.55 && f.jaw < 0.15;
+      const sleepy = mood === "sleepy";
+      // bliss: the sheet's closed-eye arc, nudged down 12 units so it reads on the blue head
+      // instead of vanishing against the same-colored ears
+      const bliss = (cx: number) => {
+        const dy = 12;
+        ctx.beginPath();
+        ctx.moveTo(X(cx - 13.54), Y(-0.9 + dy));
+        ctx.bezierCurveTo(X(cx - 10.95), Y(-5.99 + dy), X(cx - 5.72), Y(-9.2 + dy), X(cx), Y(-9.2 + dy));
+        ctx.bezierCurveTo(X(cx + 5.72), Y(-9.2 + dy), X(cx + 10.95), Y(-5.99 + dy), X(cx + 13.54), Y(-0.9 + dy));
+        strokeLine(ctx, "fill", kit.geo.SHADE, 7 * S, "round");
+      };
+      // image-left eye is the subject's right eye
+      kit.eye(ctx, pass, -1, { lid: lidFor(g("eyeBlinkRight")), closed: sleepy || g("eyeBlinkRight") > 0.65, heart }, LID, bliss);
+      kit.eye(ctx, pass, 1, { lid: lidFor(g("eyeBlinkLeft")), closed: sleepy || g("eyeBlinkLeft") > 0.65, heart }, LID, bliss);
+      if (pass === "outline") return;
+
+      kit.brows(ctx, { angry: mood === "angry" ? level : 0, sad: mood === "sad" ? level : 0 });
+      // nose
       ctx.beginPath();
-      ctx.moveTo(X(cx - 13.54), Y(-0.9 + dy));
-      ctx.bezierCurveTo(X(cx - 10.95), Y(-5.99 + dy), X(cx - 5.72), Y(-9.2 + dy), X(cx), Y(-9.2 + dy));
-      ctx.bezierCurveTo(X(cx + 5.72), Y(-9.2 + dy), X(cx + 10.95), Y(-5.99 + dy), X(cx + 13.54), Y(-0.9 + dy));
-      strokeLine(ctx, "fill", kit.geo.SHADE, 7 * S, "round");
-    };
-    // image-left eye is the subject's right eye
-    kit.eye(ctx, pass, -1, { lid: lidFor(g("eyeBlinkRight")), closed: sleepy || g("eyeBlinkRight") > 0.65, heart }, LID, bliss);
-    kit.eye(ctx, pass, 1, { lid: lidFor(g("eyeBlinkLeft")), closed: sleepy || g("eyeBlinkLeft") > 0.65, heart }, LID, bliss);
-    if (pass === "outline") return;
+      ctx.ellipse(X(2), Y(22), 9 * S, 6 * S, 0, 0, Math.PI * 2);
+      ctx.fillStyle = kit.geo.SHADE;
+      ctx.fill();
+      mouth(ctx, kit, kind, flip);
+    },
+  });
+}
 
-    kit.brows(ctx, { angry: mood === "angry" ? level : 0, sad: mood === "sad" ? level : 0 });
-    // nose
-    ctx.beginPath();
-    ctx.ellipse(X(2), Y(22), 9 * S, 6 * S, 0, 0, Math.PI * 2);
-    ctx.fillStyle = kit.geo.SHADE;
-    ctx.fill();
-    mouth(ctx, kit, kind, flip);
-  },
-});
+export const bee = makeBee();

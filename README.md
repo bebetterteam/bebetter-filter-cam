@@ -90,10 +90,13 @@ then add a small `src/filters/bebetter/<name>.ts` (its moving parts + face) like
 | Smile | 🌸 pinker cheeks |
 | Raise your eyebrows | ⭐ stars above your head |
 
-## Keyboard shortcuts
-`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `M` mirror left/right · `H` meeting mode (hides the UI)
+## In-app move guide
+Click **วิธีเล่นท่า** in the panel (or press `G`) for a guide with tabs for บี / มะนาว / ส้ม: every move is shown by the real character on a loop, with what to do and what you get. `?guide=som` opens it straight away.
 
-URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1`
+## Keyboard shortcuts
+`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `T` show/hide the emote text stickers · `M` mirror left/right · `H` meeting mode (hides the UI) · `G` move guide
+
+URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1` · `?captions=0` no text stickers
 
 ## 🚀 Quick start before a meeting (double-click)
 Double-click **`start-cutecam.command`** in Finder. It will:

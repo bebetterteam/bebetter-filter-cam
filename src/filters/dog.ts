@@ -20,7 +20,6 @@ function ear(ctx: CanvasRenderingContext2D, side: 1 | -1, swing: number) {
 
 export const dog: Filter = {
   id: "dog",
-  icon: "🐶",
   label: "หมา",
   draw(ctx, pose, bs, t) {
     const swing = Math.sin(t * 3) * 0.04;

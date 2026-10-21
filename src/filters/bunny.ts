@@ -39,7 +39,6 @@ function paint(ctx: CanvasRenderingContext2D) {
 
 export const bunny: Filter = {
   id: "bunny",
-  icon: "🐰",
   label: "กระต่าย",
   draw(ctx, pose, _bs, t) {
     const sway = Math.sin(t * 1.6) * 0.06;

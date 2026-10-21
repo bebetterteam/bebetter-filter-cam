@@ -17,27 +17,6 @@ const WING_TIP: [[number, number], [number, number]] = [[396.9, 1311.5], [723.2,
  * is a redraw in the same style). `open` 0…1: the lower mandible drops and the mouth shows.
  * Small units, centered under the eyes.
  */
-// ── crest mood (หงอนบอกอารมณ์): smoothed so the crest eases between poses
-// up = spiky (ตกใจ/โกรธ), down = flattened (เศร้า/ง่วง), hook = middle feather bends (สงสัย)
-const crest = { up: 0, down: 0, hook: 0, t: 0 };
-
-function updateCrest(f: FaceState, curious: number) {
-  const dt = clamp(f.t - crest.t, 0, 0.1);
-  if (dt === 0) return; // face() runs twice per frame (outline + fill)
-  crest.t = f.t;
-  const k = clamp(dt * 8);
-  const up = f.mood === "surprised" || f.mood === "angry" ? 1 : 0;
-  const down = f.mood === "sad" || f.mood === "sleepy" ? 1 : 0;
-  crest.up += (up - crest.up) * k;
-  crest.down += (down - crest.down) * k;
-  crest.hook += (curious - crest.hook) * k;
-}
-
-const sway = (f: FaceState) =>
-  Math.sin(f.t * 1.3) * 0.03 * (1 - crest.down)
-  + (f.mood === "surprised" ? Math.sin(f.t * 20) * 0.03 * f.level : 0)
-  + (f.gesture?.id === "question" ? Math.sin(f.t * 8) * 0.06 : 0);
-
 /**
  * 🔍 magnifying glass held over Manow's image-right eye while the "observe" sticker is up.
  * Small units; the lens magnifies by drawing that eye bigger inside it.
@@ -178,81 +157,106 @@ function beak(ctx: CanvasRenderingContext2D, kit: FaceKit, open: number) {
   ctx.restore();
 }
 
-export const manow = bebetter({
-  id: "manow",
-  icon: "🦜",
-  label: "มะนาว",
-  geo: geometry,
-  anchors: { mouth: [4, 50], cheekX: 38, cheekY: 26 },
-  parts: [
-    // tail feathers wag
-    { layer: "back", idx: [0, 1], pivot: [740, 1390],
-      angle: (f) => Math.sin(f.t * (1.8 + (f.mood === "happy" ? f.level * 4 : 0))) * 0.08 },
-    // crest feathers (left / middle / right), each pivoting at its base: they sway, spike up
-    // when surprised or angry, flatten out when sad or sleepy, and the middle one hooks when curious
-    { layer: "back", idx: [2], pivot: [500, 812],
-      angle: (f) => sway(f) + crest.up * 0.18 - crest.down * 0.6,
-      scale: () => 1 + crest.up * 0.15 - crest.down * 0.25 },
-    { layer: "back", idx: [3], pivot: [543.5, 810],
-      angle: (f) => sway(f) + crest.hook * 0.45,
-      scale: () => 1 + crest.up * 0.2 - crest.down * 0.45 - crest.hook * 0.12 },
-    { layer: "back", idx: [4], pivot: [587, 812],
-      angle: (f) => sway(f) - crest.up * 0.18 + crest.down * 0.6,
-      scale: () => 1 + crest.up * 0.15 - crest.down * 0.25 },
-    // wings flap when happy
-    { layer: "front", idx: [0], pivot: WING_PIVOT[0], angle: (f) => (f.mood === "happy" ? Math.sin(f.t * 12) * 0.12 * f.level : 0) },
-    { layer: "front", idx: [1], pivot: WING_PIVOT[1], angle: (f) => (f.mood === "happy" ? -Math.sin(f.t * 12) * 0.12 * f.level : 0) },
-  ],
-  // a parrot raises its wings (not paws) to follow your hands
-  wings: { idx: [0, 1], pivot: WING_PIVOT, tip: WING_TIP },
-  // ช่างสงสัย: brows up + head tilt → ❓ + a random question sticker
-  // ช่างสังเกต: lean in toward the camera → 🔍 magnifying glass + "อืมมม..."
-  specials: ["question", "observe"],
+/** One Manow — each instance has its own crest state (the move guide draws extra ones). */
+export function makeManow() {
+  // ── crest mood (หงอนบอกอารมณ์): smoothed so the crest eases between poses
+  // up = spiky (ตกใจ/โกรธ), down = flattened (เศร้า/ง่วง), hook = middle feather bends (สงสัย)
+  const crest = { up: 0, down: 0, hook: 0, t: 0 };
 
-  face(ctx, pass, kit, f) {
-    const { g, mood, level } = f;
-    const { X, Y, S } = kit;
-    const sl = g("mouthSmileLeft"), sr = g("mouthSmileRight");
+  function updateCrest(f: FaceState, curious: number) {
+    const dt = clamp(f.t - crest.t, 0, 0.1);
+    if (dt === 0) return; // face() runs twice per frame (outline + fill)
+    crest.t = f.t;
+    const k = clamp(dt * 8);
+    const up = f.mood === "surprised" || f.mood === "angry" ? 1 : 0;
+    const down = f.mood === "sad" || f.mood === "sleepy" ? 1 : 0;
+    crest.up += (up - crest.up) * k;
+    crest.down += (down - crest.down) * k;
+    crest.hook += (curious - crest.hook) * k;
+  }
 
-    // ตาหยี (laugh): big smile closes the eyes into ^ ^
-    const laugh = f.smile > 0.55;
-    const smug = Math.abs(sl - sr) > 0.22 && Math.max(sl, sr) > 0.3;
-    // เหล่มอง (side-eye): looking hard to one side → half lids + eyes slide that way
-    const sideEye = Math.abs(f.gx) > 0.55;
-    const dx = sideEye ? 4.2 * Math.sign(f.gx) : 0;
-    const observing = f.gesture?.id === "observe";
-    const lidFor = (blink: number) =>
-      Math.max(clamp((blink - 0.2) / 0.4), smug || sideEye || observing ? 1 : 0, mood === "angry" ? level : 0);
-    const sleepy = mood === "sleepy";
-    const chevron = (cx: number) => {
-      ctx.beginPath();
-      ctx.moveTo(X(cx - 15), Y(6));
-      ctx.lineTo(X(cx), Y(-9));
-      ctx.lineTo(X(cx + 15), Y(6));
-      strokeLine(ctx, "fill", INK, 8 * S, "round");
-    };
-    // image-left eye is the subject's right eye
-    kit.eye(ctx, pass, -1, { lid: lidFor(g("eyeBlinkRight")), closed: laugh || sleepy || g("eyeBlinkRight") > 0.65, dx }, LID, chevron);
-    kit.eye(ctx, pass, 1, { lid: lidFor(g("eyeBlinkLeft")), closed: laugh || sleepy || g("eyeBlinkLeft") > 0.65, dx }, LID, chevron);
-    if (pass === "outline") return;
+  const sway = (f: FaceState) =>
+    Math.sin(f.t * 1.3) * 0.03 * (1 - crest.down)
+    + (f.mood === "surprised" ? Math.sin(f.t * 20) * 0.03 * f.level : 0)
+    + (f.gesture?.id === "question" ? Math.sin(f.t * 8) * 0.06 : 0);
 
-    // สงสัย (curious): brows up without being sad/angry — Manow's signature look.
-    // While asking a question, stay in the curious face for the whole sticker.
-    const asking = f.gesture?.id === "question";
-    const browUp = Math.max(g("browInnerUp"), (g("browOuterUpLeft") + g("browOuterUpRight")) / 2);
-    const curious = asking ? 1 : mood === "sad" || mood === "angry" ? 0 : clamp((browUp - 0.35) / 0.3);
-    updateCrest(f, curious);
-    kit.brows(ctx, { angry: mood === "angry" ? level : 0, sad: mood === "sad" ? level : 0, curious });
+  return bebetter({
+    id: "manow",
+    label: "มะนาว",
+    geo: geometry,
+    anchors: { mouth: [4, 50], cheekX: 38, cheekY: 26 },
+    parts: [
+      // tail feathers wag
+      { layer: "back", idx: [0, 1], pivot: [740, 1390],
+        angle: (f) => Math.sin(f.t * (1.8 + (f.mood === "happy" ? f.level * 4 : 0))) * 0.08 },
+      // crest feathers (left / middle / right), each pivoting at its base: they sway, spike up
+      // when surprised or angry, flatten out when sad or sleepy, and the middle one hooks when curious
+      { layer: "back", idx: [2], pivot: [500, 812],
+        angle: (f) => sway(f) + crest.up * 0.18 - crest.down * 0.6,
+        scale: () => 1 + crest.up * 0.15 - crest.down * 0.25 },
+      { layer: "back", idx: [3], pivot: [543.5, 810],
+        angle: (f) => sway(f) + crest.hook * 0.45,
+        scale: () => 1 + crest.up * 0.2 - crest.down * 0.45 - crest.hook * 0.12 },
+      { layer: "back", idx: [4], pivot: [587, 812],
+        angle: (f) => sway(f) - crest.up * 0.18 + crest.down * 0.6,
+        scale: () => 1 + crest.up * 0.15 - crest.down * 0.25 },
+      // wings flap when happy
+      { layer: "front", idx: [0], pivot: WING_PIVOT[0], angle: (f) => (f.mood === "happy" ? Math.sin(f.t * 12) * 0.12 * f.level : 0) },
+      { layer: "front", idx: [1], pivot: WING_PIVOT[1], angle: (f) => (f.mood === "happy" ? -Math.sin(f.t * 12) * 0.12 * f.level : 0) },
+    ],
+    // a parrot raises its wings (not paws) to follow your hands
+    wings: { idx: [0, 1], pivot: WING_PIVOT, tip: WING_TIP },
+    // ช่างสงสัย: brows up + head tilt → ❓ + a random question sticker
+    // ช่างสังเกต: lean in toward the camera → 🔍 magnifying glass + "อืมมม..."
+    specials: ["question", "observe"],
 
-    // beak opens with your jaw (a little when curious); ตะโกน = wide open
-    const bx = sideEye ? 2.2 * Math.sign(f.gx) : 0;
-    const open = Math.max(clamp(f.jaw / 0.45), curious * 0.35);
-    ctx.save();
-    ctx.translate(bx * S, 0);
-    beak(ctx, kit, open);
-    ctx.restore();
+    face(ctx, pass, kit, f) {
+      const { g, mood, level } = f;
+      const { X, Y, S } = kit;
+      const sl = g("mouthSmileLeft"), sr = g("mouthSmileRight");
 
-    if (asking) questionMark(ctx, kit, f.gesture!.age, f.mirror);
-    if (observing) magnifier(ctx, kit, f.gesture!.age);
-  },
-});
+      // ตาหยี (laugh): big smile closes the eyes into ^ ^
+      const laugh = f.smile > 0.55;
+      const smug = Math.abs(sl - sr) > 0.22 && Math.max(sl, sr) > 0.3;
+      // เหล่มอง (side-eye): looking hard to one side → half lids + eyes slide that way
+      const sideEye = Math.abs(f.gx) > 0.55;
+      const dx = sideEye ? 4.2 * Math.sign(f.gx) : 0;
+      const observing = f.gesture?.id === "observe";
+      const lidFor = (blink: number) =>
+        Math.max(clamp((blink - 0.2) / 0.4), smug || sideEye || observing ? 1 : 0, mood === "angry" ? level : 0);
+      const sleepy = mood === "sleepy";
+      const chevron = (cx: number) => {
+        ctx.beginPath();
+        ctx.moveTo(X(cx - 15), Y(6));
+        ctx.lineTo(X(cx), Y(-9));
+        ctx.lineTo(X(cx + 15), Y(6));
+        strokeLine(ctx, "fill", INK, 8 * S, "round");
+      };
+      // image-left eye is the subject's right eye
+      kit.eye(ctx, pass, -1, { lid: lidFor(g("eyeBlinkRight")), closed: laugh || sleepy || g("eyeBlinkRight") > 0.65, dx }, LID, chevron);
+      kit.eye(ctx, pass, 1, { lid: lidFor(g("eyeBlinkLeft")), closed: laugh || sleepy || g("eyeBlinkLeft") > 0.65, dx }, LID, chevron);
+      if (pass === "outline") return;
+
+      // สงสัย (curious): brows up without being sad/angry — Manow's signature look.
+      // While asking a question, stay in the curious face for the whole sticker.
+      const asking = f.gesture?.id === "question";
+      const browUp = Math.max(g("browInnerUp"), (g("browOuterUpLeft") + g("browOuterUpRight")) / 2);
+      const curious = asking ? 1 : mood === "sad" || mood === "angry" ? 0 : clamp((browUp - 0.35) / 0.3);
+      updateCrest(f, curious);
+      kit.brows(ctx, { angry: mood === "angry" ? level : 0, sad: mood === "sad" ? level : 0, curious });
+
+      // beak opens with your jaw (a little when curious); ตะโกน = wide open
+      const bx = sideEye ? 2.2 * Math.sign(f.gx) : 0;
+      const open = Math.max(clamp(f.jaw / 0.45), curious * 0.35);
+      ctx.save();
+      ctx.translate(bx * S, 0);
+      beak(ctx, kit, open);
+      ctx.restore();
+
+      if (asking) questionMark(ctx, kit, f.gesture!.age, f.mirror);
+      if (observing) magnifier(ctx, kit, f.gesture!.age);
+    },
+  });
+}
+
+export const manow = makeManow();

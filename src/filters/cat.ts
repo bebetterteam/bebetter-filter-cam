@@ -27,7 +27,6 @@ function ear(ctx: CanvasRenderingContext2D, side: 1 | -1, twitch: number) {
 
 export const cat: Filter = {
   id: "cat",
-  icon: "🐱",
   label: "แมว",
   draw(ctx, pose, _bs, t) {
     // occasional ear twitch

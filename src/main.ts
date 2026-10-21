@@ -6,12 +6,21 @@ import { Gestures } from "./effects/gestures";
 import { Effects } from "./effects/triggers";
 import { FILTERS } from "./filters";
 import { HandTracker, Tracker, type Blendshapes } from "./tracker";
+import { initGuide } from "./guide";
 import { buildUi, loadSettings, renderUi, saveSettings } from "./ui";
 
 const canvas = document.getElementById("out") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 const status = document.getElementById("status")!;
+const statusMsg = status.querySelector(".msg")!;
 const fpsEl = document.getElementById("fps")!;
+const fpsTxt = fpsEl.querySelector(".txt")!;
+
+/** Loading / error card over the video; empty text hides it. */
+function setStatus(text: string, kind: "loading" | "error" = "loading") {
+  status.dataset.kind = text ? kind : "";
+  statusMsg.textContent = text;
+}
 const video = document.createElement("video");
 video.muted = true;
 video.playsInline = true;
@@ -20,6 +29,7 @@ const params = new URLSearchParams(location.search);
 const mirrorParam = params.get("mirror");
 const settings = loadSettings();
 if (params.get("filter")) settings.filter = params.get("filter")!;
+if (params.get("captions")) settings.captions = params.get("captions") !== "0";
 
 let clean = params.get("clean") === "1";
 // Meeting apps mirror your self-view already, so send an unmirrored picture in meeting mode.
@@ -54,11 +64,16 @@ async function switchCamera(id?: string) {
   smoother.reset();
 }
 
+const guide = initGuide({ onUse(id) { settings.filter = id; refreshUi(); guide.close(); } });
+
 buildUi({
   onFilter(id) { settings.filter = id; refreshUi(); },
+  onGuide() { guide.toggle(settings.filter); },
+  onEscape() { if (guide.isOpen()) guide.close(); else { clean = !clean; mirror = defaultMirror(); refreshUi(); } },
   onEffects() { settings.effects = !settings.effects; refreshUi(); },
+  onCaptions() { settings.captions = !settings.captions; refreshUi(); },
   onMirror() { mirror = !mirror; refreshUi(); },
-  onClean() { clean = !clean; mirror = defaultMirror(); refreshUi(); },
+  onClean() { if (guide.isOpen()) guide.close(); clean = !clean; mirror = defaultMirror(); refreshUi(); },
   async onCamera(id) {
     settings.camera = id;
     await switchCamera(id).catch(showError);
@@ -69,10 +84,12 @@ buildUi({
 function showError(err: unknown) {
   console.error("[CuteCam]", err);
   const name = (err as Error)?.name;
-  status.textContent =
-    name === "NotAllowedError" ? "😿 กรุณาอนุญาตให้ใช้กล้องก่อนนะ" :
-    name === "NotFoundError" ? "😿 ไม่พบกล้อง" :
-    `😿 เกิดข้อผิดพลาด: ${(err as Error)?.message ?? err}`;
+  setStatus(
+    name === "NotAllowedError" ? "ยังไม่ได้รับอนุญาตให้ใช้กล้อง กดอนุญาตที่แถบที่อยู่ แล้วรีโหลดหน้านี้" :
+    name === "NotFoundError" ? "ไม่พบกล้อง ลองเสียบกล้องแล้วรีโหลดหน้านี้" :
+    `เปิดกล้องไม่สำเร็จ: ${(err as Error)?.message ?? err}`,
+    "error",
+  );
 }
 
 // hand tracking is loaded lazily, only when a filter wants it (it costs extra CPU/GPU)
@@ -146,11 +163,13 @@ function loop(tracker: Tracker) {
   if (settings.effects) effects.draw(ctx);
   ctx.restore();
   // captions are drawn unmirrored so the text always reads correctly
-  if (filter.id !== "none") gestures.drawHud(ctx, pose, mirror, t);
+  // (gestures still run with captions off, so ❓ / 🔍 / bounces etc. keep playing)
+  if (filter.id !== "none" && settings.captions) gestures.drawHud(ctx, pose, mirror, t);
 
   frames++;
   if (now - fpsT > 1000) {
-    fpsEl.textContent = `${frames} fps${pose ? "" : " · ไม่เจอหน้า"}`;
+    fpsEl.dataset.face = pose ? "1" : "0";
+    fpsTxt.textContent = `${frames} fps · ${pose ? "พบใบหน้า" : "ไม่พบใบหน้า"}`;
     frames = 0;
     fpsT = now;
   }
@@ -159,22 +178,27 @@ function loop(tracker: Tracker) {
 
 async function start() {
   refreshUi();
+  if (params.get("guide")) guide.open(params.get("guide")!);
   // canvas text doesn't trigger web-font loading on its own
   document.fonts?.load('700 40px "Mitr"').catch(() => {});
   try {
-    status.textContent = "📷 กำลังเปิดกล้อง…";
+    setStatus("กำลังเปิดกล้อง");
     await switchCamera(settings.camera ?? undefined);
     // If the first pick was a virtual cam (e.g. OBS), switch to a real one.
     const preferred = pickDefaultCamera(cams, settings.camera);
     if (preferred && preferred !== camId) await switchCamera(preferred);
     refreshUi();
-
-    status.textContent = "🧠 กำลังโหลดโมเดลจับหน้า…";
+  } catch (err) {
+    return showError(err);
+  }
+  try {
+    setStatus("กำลังโหลดโมเดลจับใบหน้า");
     const tracker = await Tracker.create();
-    status.textContent = "";
+    setStatus("");
     loop(tracker);
   } catch (err) {
-    showError(err);
+    console.error("[CuteCam]", err);
+    setStatus(`โหลดตัวจับใบหน้าไม่สำเร็จ ลองรีโหลดหน้านี้ หรือเปิดการเร่งกราฟิก (hardware acceleration) ในเบราว์เซอร์ · ${(err as Error)?.message ?? err}`, "error");
   }
 }
 

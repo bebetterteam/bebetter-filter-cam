@@ -3,7 +3,6 @@ import { LINE, OUTLINE, type Filter } from "./types";
 
 export const bear: Filter = {
   id: "bear",
-  icon: "🐻",
   label: "หมี",
   draw(ctx, pose, _bs, t) {
     const bob = Math.sin(t * 2.2) * 0.008;

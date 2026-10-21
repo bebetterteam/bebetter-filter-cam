@@ -18,8 +18,9 @@ export interface Extras {
 
 export interface Filter {
   id: string;
-  icon: string;
   label: string;
+  /** UI accent color while this filter is selected (defaults to ink) */
+  accent?: string;
   /** Covers the whole face (skip the global cheek blush). */
   mask?: boolean;
   /** Load hand tracking for this filter (e.g. arms that follow your real hands). */
