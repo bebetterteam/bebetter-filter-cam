@@ -11,10 +11,22 @@ export interface Settings {
   /** show the text stickers (รับทราบ, เย้!! …); the emote animations still play when off */
   captions: boolean;
   camera: string | null;
+  /** solid background color instead of the camera picture (only the mascot shows); null = camera */
+  bg: string | null;
 }
 
+export const BG_DEFAULT = "#00B140";
+export const BG_PRESETS: { color: string | null; label: string }[] = [
+  { color: null, label: "กล้อง" },
+  { color: BG_DEFAULT, label: "เขียว (คีย์ OBS)" },
+  { color: "#FFFFFF", label: "ขาว" },
+  { color: "#FFE4EC", label: "ชมพูพาสเทล" },
+  { color: "#CFE8FF", label: "ฟ้าพาสเทล" },
+  { color: "#1E1B18", label: "เข้ม" },
+];
+
 export function loadSettings(): Settings {
-  const defaults: Settings = { filter: "bee", effects: true, captions: true, camera: null };
+  const defaults: Settings = { filter: "bee", effects: true, captions: true, camera: null, bg: null };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
@@ -37,6 +49,9 @@ export interface UiHandlers {
   onMirror(): void;
   onClean(): void;
   onCamera(deviceId: string): void;
+  onBg(color: string | null): void;
+  /** B: camera ↔ last used color */
+  onBgToggle(): void;
   onGuide(): void;
   /** Esc: closes the guide if it's open, otherwise toggles meeting mode */
   onEscape(): void;
@@ -46,6 +61,8 @@ export interface UiHandlers {
 
 const THUMB = 72; // CSS px
 const SKIN = "#F2C9A8";
+const CAMERA_ICON =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.8-2h5.4l1.8 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.8" r="3.4"/></svg>';
 const SLASH_ICON =
   '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>';
 
@@ -94,6 +111,29 @@ export function buildUi(h: UiHandlers) {
     b.onclick = () => h.onFilter(f.id);
     tray.append(b);
   });
+  const bg = document.getElementById("bg")!;
+  for (const p of BG_PRESETS) {
+    const b = document.createElement("button");
+    b.className = "swatch";
+    b.dataset.bg = p.color ?? "";
+    b.title = p.label;
+    b.setAttribute("aria-label", p.label);
+    b.setAttribute("aria-pressed", "false");
+    if (p.color) b.style.background = p.color;
+    else b.innerHTML = CAMERA_ICON;
+    b.onclick = () => h.onBg(p.color);
+    bg.append(b);
+  }
+  const pick = document.createElement("input");
+  pick.type = "color";
+  pick.id = "bg-custom";
+  pick.className = "swatch custom";
+  pick.title = "เลือกสีเอง";
+  pick.setAttribute("aria-label", "เลือกสีเอง");
+  pick.value = BG_DEFAULT;
+  pick.oninput = () => h.onBg(pick.value.toUpperCase());
+  bg.append(pick);
+
   document.getElementById("fx")!.onclick = h.onEffects;
   document.getElementById("captions")!.onclick = h.onCaptions;
   document.getElementById("mirror")!.onclick = h.onMirror;
@@ -112,6 +152,7 @@ export function buildUi(h: UiHandlers) {
     else if (e.key === "g" || e.key === "G") h.onGuide();
     else if (e.key === "Escape") h.onEscape();
     else if (e.key === "h" || e.key === "H") h.onClean();
+    else if (e.key === "b" || e.key === "B") h.onBgToggle();
   });
 }
 
@@ -123,6 +164,13 @@ export function renderUi(s: Settings, mirror: boolean, cams: MediaDeviceInfo[], 
   sw("fx", s.effects);
   sw("captions", s.captions);
   sw("mirror", mirror);
+  const preset = BG_PRESETS.some((p) => p.color === s.bg);
+  document.querySelectorAll<HTMLButtonElement>("#bg button.swatch").forEach((b) => {
+    b.setAttribute("aria-pressed", String((b.dataset.bg || null) === s.bg));
+  });
+  const pick = document.getElementById("bg-custom") as HTMLInputElement;
+  pick.toggleAttribute("data-active", !!s.bg && !preset);
+  if (s.bg) pick.value = s.bg.toLowerCase();
   applyAccent(document.documentElement, FILTERS.find((f) => f.id === s.filter)?.accent);
 
   const sel = document.getElementById("camera") as HTMLSelectElement;

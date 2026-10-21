@@ -94,9 +94,9 @@ then add a small `src/filters/bebetter/<name>.ts` (its moving parts + face) like
 Click **วิธีเล่นท่า** in the panel (or press `G`) for a guide with tabs for บี / มะนาว / ส้ม: every move is shown by the real character on a loop, with what to do and what you get. `?guide=som` opens it straight away.
 
 ## Keyboard shortcuts
-`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `T` show/hide the emote text stickers · `M` mirror left/right · `H` meeting mode (hides the UI) · `G` move guide
+`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `T` show/hide the emote text stickers · `M` mirror left/right · `H` meeting mode (hides the UI) · `B` solid background (camera ↔ color) · `G` move guide
 
-URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1` · `?captions=0` no text stickers
+URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1` · `?captions=0` no text stickers · `?bg=00B140` solid background color (`?bg=0` camera)
 
 ## 🚀 Quick start before a meeting (double-click)
 Double-click **`start-cutecam.command`** in Finder. It will:
@@ -124,6 +124,9 @@ Close the Terminal window when the meeting is over.
 5. In Discord: Settings → Voice & Video → Camera → **OBS Virtual Camera**.
    In Teams: Settings → Devices → Camera → **OBS Virtual Camera**.
    If it doesn't show up, fully quit Discord/Teams (⌘Q) and open it again.
+
+> **Mascot only:** pick a solid color under "พื้นหลัง" (or press `B`) to hide the camera picture, so only the character shows.
+> Choose green, then in OBS right-click the source → Filters → **Chroma Key** to get a transparent mascot.
 
 > In meeting mode the picture is **not mirrored**, because Discord/Teams already mirror your self-view. Other people see you the right way round.
 > The Cute Cam window should not be minimized. It can sit behind other windows.

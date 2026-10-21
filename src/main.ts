@@ -7,7 +7,7 @@ import { Effects } from "./effects/triggers";
 import { FILTERS } from "./filters";
 import { HandTracker, Tracker, type Blendshapes } from "./tracker";
 import { initGuide } from "./guide";
-import { buildUi, loadSettings, renderUi, saveSettings } from "./ui";
+import { BG_DEFAULT, buildUi, loadSettings, renderUi, saveSettings } from "./ui";
 
 const canvas = document.getElementById("out") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
@@ -30,6 +30,10 @@ const mirrorParam = params.get("mirror");
 const settings = loadSettings();
 if (params.get("filter")) settings.filter = params.get("filter")!;
 if (params.get("captions")) settings.captions = params.get("captions") !== "0";
+// ?bg=00B140 → solid color behind the mascot, ?bg=0 → camera
+const bgParam = params.get("bg");
+if (bgParam) settings.bg = /^#?[0-9a-f]{6}$/i.test(bgParam) ? "#" + bgParam.replace("#", "").toUpperCase() : null;
+let lastBg = settings.bg ?? BG_DEFAULT;
 
 let clean = params.get("clean") === "1";
 // Meeting apps mirror your self-view already, so send an unmirrored picture in meeting mode.
@@ -72,6 +76,8 @@ buildUi({
   onEscape() { if (guide.isOpen()) guide.close(); else { clean = !clean; mirror = defaultMirror(); refreshUi(); } },
   onEffects() { settings.effects = !settings.effects; refreshUi(); },
   onCaptions() { settings.captions = !settings.captions; refreshUi(); },
+  onBg(color) { settings.bg = color; if (color) lastBg = color; refreshUi(); },
+  onBgToggle() { settings.bg = settings.bg ? null : lastBg; refreshUi(); },
   onMirror() { mirror = !mirror; refreshUi(); },
   onClean() { if (guide.isOpen()) guide.close(); clean = !clean; mirror = defaultMirror(); refreshUi(); },
   async onCamera(id) {
@@ -153,8 +159,13 @@ function loop(tracker: Tracker) {
 
   ctx.save();
   if (mirror) ctx.setTransform(-1, 0, 0, 1, W, 0);
-  ctx.drawImage(video, 0, 0, W, H);
-  if (settings.effects && !filter.mask) effects.drawBlush(ctx, fxPose);
+  // solid background: hide the camera picture so only the mascot shows (tracking still reads the video)
+  if (settings.bg) {
+    ctx.fillStyle = settings.bg;
+    ctx.fillRect(0, 0, W, H);
+  } else ctx.drawImage(video, 0, 0, W, H);
+  // blush sits on your real cheeks, so skip it when there's no face to sit on
+  if (settings.effects && !filter.mask && !settings.bg) effects.drawBlush(ctx, fxPose);
   if (pose) {
     filter.draw(ctx, pose, emotion.smooth, t, {
       mood: emotion.mood, moodLevel: emotion.level, paw: gestures.paw(t), mirror, hands, gesture: gestures.current(t),
