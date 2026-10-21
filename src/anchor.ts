@@ -85,6 +85,20 @@ export class PoseSmoother {
   }
 }
 
+/**
+ * Same face, moved to a fixed spot and size: the mascot stays put while
+ * expressions and head tilt/turn/nod still come from the tracked face.
+ */
+export function pinPose(pose: Pose, at: Pt, size: number): Pose {
+  const k = size / pose.size;
+  const out = { ...pose, size } as Record<string, number | Pt>;
+  for (const [key, v] of Object.entries(pose)) {
+    if (typeof v === "number") continue;
+    out[key] = { x: at.x + (v.x - pose.center.x) * k, y: at.y + (v.y - pose.center.y) * k };
+  }
+  return out as unknown as Pose;
+}
+
 /** Run `fn` in face space: origin at `at`, x along the eye line, 1 unit = face width. */
 export function inFace(ctx: CanvasRenderingContext2D, pose: Pose, at: Pt, fn: () => void) {
   ctx.save();

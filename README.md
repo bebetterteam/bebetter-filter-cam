@@ -94,9 +94,9 @@ then add a small `src/filters/bebetter/<name>.ts` (its moving parts + face) like
 Click **วิธีเล่นท่า** in the panel (or press `G`) for a guide with tabs for บี / มะนาว / ส้ม: every move is shown by the real character on a loop, with what to do and what you get. `?guide=som` opens it straight away.
 
 ## Keyboard shortcuts
-`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `T` show/hide the emote text stickers · `M` mirror left/right · `H` meeting mode (hides the UI) · `B` solid background (camera ↔ color) · `G` move guide
+`1`–`8` switch filters (Bee / Manow / Som / cat / dog / bunny / bear / none) · `E` turn effects on/off · `T` show/hide the emote text stickers · `M` mirror left/right · `H` meeting mode (hides the UI) · `P` lock the mascot in place (still follows expressions) · `B` solid background (camera ↔ color) · `G` move guide
 
-URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1` · `?captions=0` no text stickers · `?bg=00B140` solid background color (`?bg=0` camera)
+URL params: `?clean=1` start in meeting mode · `?filter=bunny` · `?mirror=0|1` · `?captions=0` no text stickers · `?pin=1` locked mascot · `?bg=00B140` solid background color (`?bg=0` camera)
 
 ## 🚀 Quick start before a meeting (double-click)
 Double-click **`start-cutecam.command`** in Finder. It will:

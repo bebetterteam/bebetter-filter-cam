@@ -1,5 +1,5 @@
 import "./style.css";
-import { PoseSmoother, poseFromLandmarks, type Pose, type Pt } from "./anchor";
+import { PoseSmoother, pinPose, poseFromLandmarks, type Pose, type Pt } from "./anchor";
 import { listCameras, openCamera, pickDefaultCamera } from "./camera";
 import { Emotion } from "./effects/emotion";
 import { Gestures } from "./effects/gestures";
@@ -33,6 +33,7 @@ if (params.get("captions")) settings.captions = params.get("captions") !== "0";
 // ?bg=00B140 → solid color behind the mascot, ?bg=0 → camera
 const bgParam = params.get("bg");
 if (bgParam) settings.bg = /^#?[0-9a-f]{6}$/i.test(bgParam) ? "#" + bgParam.replace("#", "").toUpperCase() : null;
+if (params.get("pin")) settings.pin = params.get("pin") !== "0";
 let lastBg = settings.bg ?? BG_DEFAULT;
 
 let clean = params.get("clean") === "1";
@@ -79,6 +80,7 @@ buildUi({
   onBg(color) { settings.bg = color; if (color) lastBg = color; refreshUi(); },
   onBgToggle() { settings.bg = settings.bg ? null : lastBg; refreshUi(); },
   onMirror() { mirror = !mirror; refreshUi(); },
+  onPin() { settings.pin = !settings.pin; refreshUi(); },
   onClean() { if (guide.isOpen()) guide.close(); clean = !clean; mirror = defaultMirror(); refreshUi(); },
   async onCamera(id) {
     settings.camera = id;
@@ -111,6 +113,10 @@ function ensureHands() {
     .then((h) => (handTracker = h))
     .catch((err) => console.warn("[CuteCam] hand tracking unavailable", err));
 }
+
+// pinned mascot: face center at this fraction of the height, face width as a fraction of the height
+const PIN_Y = 0.6;
+const PIN_SIZE = 0.3;
 
 let lastVideoTime = -1;
 let lastFrame = performance.now();
@@ -154,7 +160,9 @@ function loop(tracker: Tracker) {
     laugh: smile > 0.6 && (sm.jawOpen ?? 0) > 0.3,
     determined: browDown > 0.4 && smile > 0.35,
   });
-  const fxPose = pose && filter.remap ? filter.remap(pose) : pose;
+  // gestures above read the real face (nod / lean / hands); everything drawn uses the pinned one
+  const drawPose = pose && settings.pin ? pinPose(pose, { x: W / 2, y: H * PIN_Y }, H * PIN_SIZE) : pose;
+  const fxPose = drawPose && filter.remap ? filter.remap(drawPose) : drawPose;
   if (settings.effects) effects.update(fxPose, blendshapes, t, dt, filter.id === "none" || filter.mask ? 0 : 0.25);
 
   ctx.save();
@@ -166,8 +174,8 @@ function loop(tracker: Tracker) {
   } else ctx.drawImage(video, 0, 0, W, H);
   // blush sits on your real cheeks, so skip it when there's no face to sit on
   if (settings.effects && !filter.mask && !settings.bg) effects.drawBlush(ctx, fxPose);
-  if (pose) {
-    filter.draw(ctx, pose, emotion.smooth, t, {
+  if (drawPose) {
+    filter.draw(ctx, drawPose, emotion.smooth, t, {
       mood: emotion.mood, moodLevel: emotion.level, paw: gestures.paw(t), mirror, hands, gesture: gestures.current(t),
     });
   }
@@ -175,7 +183,7 @@ function loop(tracker: Tracker) {
   ctx.restore();
   // captions are drawn unmirrored so the text always reads correctly
   // (gestures still run with captions off, so ❓ / 🔍 / bounces etc. keep playing)
-  if (filter.id !== "none" && settings.captions) gestures.drawHud(ctx, pose, mirror, t);
+  if (filter.id !== "none" && settings.captions) gestures.drawHud(ctx, drawPose, mirror, t);
 
   frames++;
   if (now - fpsT > 1000) {

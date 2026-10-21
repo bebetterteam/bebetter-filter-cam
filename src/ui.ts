@@ -13,6 +13,8 @@ export interface Settings {
   camera: string | null;
   /** solid background color instead of the camera picture (only the mascot shows); null = camera */
   bg: string | null;
+  /** keep the mascot fixed in the middle of the frame; it still follows expressions */
+  pin: boolean;
 }
 
 export const BG_DEFAULT = "#00B140";
@@ -26,7 +28,7 @@ export const BG_PRESETS: { color: string | null; label: string }[] = [
 ];
 
 export function loadSettings(): Settings {
-  const defaults: Settings = { filter: "bee", effects: true, captions: true, camera: null, bg: null };
+  const defaults: Settings = { filter: "bee", effects: true, captions: true, camera: null, bg: null, pin: false };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
@@ -47,6 +49,7 @@ export interface UiHandlers {
   onEffects(): void;
   onCaptions(): void;
   onMirror(): void;
+  onPin(): void;
   onClean(): void;
   onCamera(deviceId: string): void;
   onBg(color: string | null): void;
@@ -137,6 +140,7 @@ export function buildUi(h: UiHandlers) {
   document.getElementById("fx")!.onclick = h.onEffects;
   document.getElementById("captions")!.onclick = h.onCaptions;
   document.getElementById("mirror")!.onclick = h.onMirror;
+  document.getElementById("pin")!.onclick = h.onPin;
   document.getElementById("hide")!.onclick = h.onClean;
   document.getElementById("guide-open")!.onclick = h.onGuide;
   const sel = document.getElementById("camera") as HTMLSelectElement;
@@ -149,6 +153,7 @@ export function buildUi(h: UiHandlers) {
     else if (e.key === "e" || e.key === "E") h.onEffects();
     else if (e.key === "t" || e.key === "T") h.onCaptions();
     else if (e.key === "m" || e.key === "M") h.onMirror();
+    else if (e.key === "p" || e.key === "P") h.onPin();
     else if (e.key === "g" || e.key === "G") h.onGuide();
     else if (e.key === "Escape") h.onEscape();
     else if (e.key === "h" || e.key === "H") h.onClean();
@@ -164,6 +169,7 @@ export function renderUi(s: Settings, mirror: boolean, cams: MediaDeviceInfo[], 
   sw("fx", s.effects);
   sw("captions", s.captions);
   sw("mirror", mirror);
+  sw("pin", s.pin);
   const preset = BG_PRESETS.some((p) => p.color === s.bg);
   document.querySelectorAll<HTMLButtonElement>("#bg button.swatch").forEach((b) => {
     b.setAttribute("aria-pressed", String((b.dataset.bg || null) === s.bg));
