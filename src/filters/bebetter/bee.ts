@@ -1,17 +1,17 @@
 import { geometry } from "./bee-geometry";
-import { bebetter, clamp, strokeLine, type FaceKit, type LidStyle } from "./rig";
+import { bebetter, clamp, strokeLine, type FaceKit, type FaceState, type LidStyle } from "./rig";
 
 // Bee — แมว · CAT. "นิ่ง หน้าตาย พูดน้อย" (public/ref/BeBetter_sheet_Bee.svg)
 
 const LID: LidStyle = { top: -25.65, max: -2.85, halfW: 23.75, line: true };
 
-type MouthShape = "calm" | "happy" | "smirk" | "alert" | "shout";
+type MouthShape = "calm" | "happy" | "smirk" | "talk";
 
-function pickMouth(g: (k: string) => number): { kind: MouthShape; flip: boolean } {
-  const jaw = g("jawOpen");
+function pickMouth(f: FaceState): { kind: MouthShape; flip: boolean } {
+  const { g } = f;
   const sl = g("mouthSmileLeft"), sr = g("mouthSmileRight"); // subject's left = image right
-  if (jaw > 0.38) return { kind: "shout", flip: false };
-  if (jaw > 0.15) return { kind: "alert", flip: false };
+  // talking (or shouting) takes over as soon as the lips part; the sheet faces stay for a closed mouth
+  if (f.speech.open > 0.08) return { kind: "talk", flip: false };
   if (Math.abs(sl - sr) > 0.22 && Math.max(sl, sr) > 0.3) return { kind: "smirk", flip: sr > sl };
   if ((sl + sr) / 2 > 0.4) return { kind: "happy", flip: false };
   return { kind: "calm", flip: false };
@@ -52,13 +52,9 @@ function mouth(ctx: CanvasRenderingContext2D, kit: FaceKit, kind: MouthShape, fl
       ctx.quadraticCurveTo(X(40), Y(28), X(36), Y(36));
       strokeLine(ctx, "fill", shade, 6 * S, "round");
       break;
-    case "alert":
-      ctx.beginPath();
-      ctx.ellipse(X(8), Y(40), 6 * S, 8 * S, 0, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-    case "shout":
-      kit.shout(ctx, [8, 52]);
+    case "talk":
+      // sits on the calm mouth's line when barely open, drops to the shout's spot when wide open
+      kit.talk(ctx, [8, 42 + 10 * kit.f.speech.open]);
       break;
   }
   ctx.restore();
@@ -83,7 +79,7 @@ export function makeBee() {
     face(ctx, pass, kit, f) {
       const { g, mood, level } = f;
       const { X, Y, S } = kit;
-      const { kind, flip } = pickMouth(g);
+      const { kind, flip } = pickMouth(f);
       const lidFor = (blink: number) => {
         let lid = clamp((blink - 0.2) / 0.4);
         if (mood === "sad") lid = Math.max(lid, level);

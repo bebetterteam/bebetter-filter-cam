@@ -15,8 +15,13 @@ export class Emotion {
 
   update(bs: Blendshapes | null, t: number, dt: number) {
     const a = 1 - Math.exp(-dt * 18);
+    // mouth keys follow faster so quick syllables still reach the character's lips
+    const am = 1 - Math.exp(-dt * 35);
     if (bs) {
-      for (const [k, v] of Object.entries(bs)) this.smooth[k] = (this.smooth[k] ?? v) + (v - (this.smooth[k] ?? v)) * a;
+      for (const [k, v] of Object.entries(bs)) {
+        const prev = this.smooth[k] ?? v;
+        this.smooth[k] = prev + (v - prev) * (k.startsWith("mouth") || k.startsWith("jaw") ? am : a);
+      }
     } else {
       for (const k of Object.keys(this.smooth)) this.smooth[k] *= 1 - a;
     }

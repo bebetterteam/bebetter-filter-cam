@@ -1,6 +1,6 @@
 import { Particles } from "../../effects/particles";
 import { geometry } from "./som-geometry";
-import { bebetter, clamp, INK, strokeLine, WHITE, type FaceKit, type FaceState, type LidStyle } from "./rig";
+import { bebetter, clamp, INK, strokeLine, TONGUE, WHITE, type FaceKit, type FaceState, type LidStyle } from "./rig";
 
 // Som — หมา · DOG. "พลังเยอะ ลองก่อนคิด ตัวทำพัง โดนสถานการณ์เล่นงาน" (public/ref/BeBetter_sheet_Som.svg)
 // Face features are the sheet's 10 EXPRESSIONS cells, in small units (eye midpoint = 0,0).
@@ -29,7 +29,8 @@ function feelings(f: FaceState) {
   const worried = !sad && !excited && !determined && f.smile < 0.2 && browUp > 0.45;
   const shout = f.jaw > 0.4;
   const confused = worried && f.jaw > 0.08 && !shout; // งง: worried + mouth hanging open a bit
-  const wow = !shout && !confused && f.jaw > 0.15;
+  // a bigger jaw than normal talking, so chatting stays on the grin
+  const wow = !shout && !confused && f.jaw > 0.25;
   return { yay, go, determined, excited, sad, worried, confused, shout, wow };
 }
 
@@ -194,7 +195,9 @@ export function makeSom() {
       ctx.fillStyle = INK;
       ctx.fill();
 
-      // mouth
+      // mouth — the sheet's faces, opening and closing as you talk
+      const sp = f.speech;
+      const talking = sp.open > 0.08;
       const frown = () => {
         ctx.beginPath();
         ctx.moveTo(X(-10), Y(52));
@@ -204,24 +207,33 @@ export function makeSom() {
       if (e.shout) kit.shout(ctx, [6, 54]);
       else if (e.confused) {
         frown();
+        kit.talk(ctx, [6, 50 + 4 * sp.open], { open: Math.max(sp.open, 0.45), round: Math.max(sp.round, 0.4), smile: 0 });
+      } else if (e.wow) kit.talk(ctx, [6, 46 + 8 * sp.open], { round: Math.max(sp.round, 0.5) });
+      else if (e.sad || e.worried || f.mood === "angry") {
+        if (talking) kit.talk(ctx, [6, 48 + 6 * sp.open], { smile: 0 });
+        else frown();
+      } else {
+        // the default wide grin (happy / excited / ฟิน / มุ่งมั่น): the lower lip drops as you talk,
+        // pinches flat on ม/บ/ป, and narrows on โอ/อู
+        const drop = 30 * sp.open - 26 * sp.closed;
+        const pinch = 10 * sp.round;
+        const l = -22 + pinch, r = 36 - pinch;
         ctx.beginPath();
-        ctx.ellipse(X(6), Y(52), 12 * S, 15 * S, 0, 0, Math.PI * 2);
-        ctx.fillStyle = INK;
-        ctx.fill();
-      } else if (e.wow) {
-        ctx.beginPath();
-        ctx.ellipse(X(6), Y(48), 10 * S, 13 * S, 0, 0, Math.PI * 2);
+        ctx.moveTo(X(l), Y(36));
+        ctx.quadraticCurveTo(X(6), Y(78 + drop), X(r), Y(34));
+        ctx.quadraticCurveTo(X(6), Y(48 - 6 * sp.open), X(l), Y(36));
         ctx.fillStyle = shade;
         ctx.fill();
-      } else if (e.sad || e.worried || f.mood === "angry") frown();
-      else {
-        // the default wide grin (happy / excited / ฟิน / มุ่งมั่น)
-        ctx.beginPath();
-        ctx.moveTo(X(-22), Y(36));
-        ctx.quadraticCurveTo(X(6), Y(78), X(36), Y(34));
-        ctx.quadraticCurveTo(X(6), Y(48), X(-22), Y(36));
-        ctx.fillStyle = shade;
-        ctx.fill();
+        if (sp.open > 0.3) {
+          // tongue peeks up from the bottom of the open grin
+          ctx.save();
+          ctx.clip();
+          ctx.beginPath();
+          ctx.ellipse(X(6), Y(57 + drop / 2), 12 * S, 8 * clamp((sp.open - 0.3) / 0.4) * S, 0, 0, Math.PI * 2);
+          ctx.fillStyle = TONGUE;
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       if (e.worried || e.confused) sweat(ctx, kit, f.t);

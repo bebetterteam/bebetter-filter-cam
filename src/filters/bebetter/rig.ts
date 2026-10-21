@@ -42,6 +42,30 @@ type V = [number, number];
 export const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
 export const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
+/** How the mouth is talking right now, all 0…1. */
+export interface Speech {
+  /** how far the mouth is open, tuned so normal talking (jawOpen ≈ 0.05–0.3) reads clearly */
+  open: number;
+  /** lips pulled sideways (อี / แอ) */
+  wide: number;
+  /** lips rounded forward (โอ / อู) */
+  round: number;
+  /** lips pressed shut (ม / บ / ป) */
+  closed: number;
+}
+
+export function speechOf(g: (k: string) => number, smile: number): Speech {
+  const avg = (k: string) => (g(k + "Left") + g(k + "Right")) / 2;
+  // relaxed lips already press a little, so only count a real press
+  const press = Math.max(g("mouthClose") * 2, avg("mouthPress"), (g("mouthRollLower") + g("mouthRollUpper")) / 2);
+  const closed = clamp((press - 0.2) / 0.5);
+  const raw = g("jawOpen") + 0.5 * avg("mouthLowerDown") + 0.3 * avg("mouthUpperUp") - 0.8 * g("mouthClose");
+  const open = clamp((raw - 0.03) / 0.35) ** 0.7 * (1 - 0.8 * closed);
+  const round = clamp(Math.max(g("mouthFunnel"), g("mouthPucker")) * 1.3);
+  const wide = clamp(avg("mouthStretch") * 1.5 + 0.5 * smile - 0.6 * round);
+  return { open, wide, round, closed };
+}
+
 /** What a character's face function gets each frame. */
 export interface FaceState {
   g: (k: string) => number;
@@ -49,6 +73,8 @@ export interface FaceState {
   level: number;
   smile: number;
   jaw: number;
+  /** lip-sync, from the mouth blendshapes (see speechOf) */
+  speech: Speech;
   /** gaze: +x = toward image right, +y = down; −1…1 */
   gx: number;
   gy: number;
@@ -290,21 +316,46 @@ export class FaceKit {
     pair(b.curious ?? 0, this.geo.SHADE, -30, -34);
   }
 
-  /** ตะโกน: the sheets' shouting mouth, grows with the jaw. `at` = its center in small units. */
-  shout(ctx: CanvasRenderingContext2D, at: V) {
+  /**
+   * พูด: a talking mouth that morphs with the speech blendshapes — a slit when barely open, round for
+   * โอ/อู, wide for อี, a D-shaped grin when smiling — and grows into the sheets' shout at open = 1.
+   * `at` = its center in small units; `o` overrides the live speech (e.g. `{ open: 1 }` for a shout).
+   */
+  talk(ctx: CanvasRenderingContext2D, at: V, o: Partial<Speech> & { smile?: number } = {}) {
     const { X, Y, S } = this;
-    const k = 0.7 + 0.3 * clamp((this.f.jaw - 0.38) / 0.4);
+    const sp = { ...this.f.speech, ...o };
+    const smile = o.smile ?? this.f.smile;
+    const open = clamp(sp.open);
+    if (open <= 0.01) return;
+    const round = clamp(sp.round) * (1 - 0.5 * open); // a wide-open mouth can't stay pursed
+    const rx = (13 + 13 * open + 4 * open * clamp((this.f.jaw - 0.4) / 0.3)) * (1 + 0.35 * sp.wide - 0.45 * round);
+    const ry = (2 + 22 * open) * (1 + 0.25 * round);
+    const grin = clamp(smile * 1.4 - round) * (1 - 0.5 * open); // flatter top, rounder bottom
+    const cx = X(at[0]), cy = Y(at[1]);
+    const top = ry * (1 - 0.65 * grin), bot = ry * (1 + 0.25 * grin);
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(X(at[0]), Y(at[1]), 30 * S * (0.85 + 0.15 * k), 24 * S * k, 0, 0, Math.PI * 2);
+    ctx.moveTo(cx - rx * S, cy);
+    ctx.bezierCurveTo(cx - rx * S, cy - top * 1.33 * S, cx + rx * S, cy - top * 1.33 * S, cx + rx * S, cy);
+    ctx.bezierCurveTo(cx + rx * S, cy + bot * 1.33 * S, cx - rx * S, cy + bot * 1.33 * S, cx - rx * S, cy);
+    ctx.closePath();
     ctx.fillStyle = INK;
     ctx.fill();
-    ctx.clip();
-    ctx.beginPath();
-    ctx.ellipse(X(at[0]), Y(at[1] + 12 * k), 16 * S, 9 * S, 0, 0, Math.PI * 2);
-    ctx.fillStyle = TONGUE;
-    ctx.fill();
+    // tongue rises into view from the bottom as the mouth opens
+    const tk = clamp((open - 0.3) / 0.5);
+    if (tk > 0) {
+      ctx.clip();
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + (bot * 0.95 - 3 * tk) * S, rx * 0.55 * S, (4 + 6 * tk) * S, 0, 0, Math.PI * 2);
+      ctx.fillStyle = TONGUE;
+      ctx.fill();
+    }
     ctx.restore();
+  }
+
+  /** ตะโกน: the sheets' shouting mouth (the talking mouth fully open). `at` = its center in small units. */
+  shout(ctx: CanvasRenderingContext2D, at: V) {
+    this.talk(ctx, at, { open: 1, round: 0, wide: 0, smile: 0 });
   }
 }
 
@@ -413,13 +464,14 @@ export function bebetter(def: CharacterDef): Filter {
       const g = (k: string) => bs[k] ?? 0;
       const dt = clamp(t - anim.last, 0, 0.1);
       anim.last = t;
+      const smile = (g("mouthSmileLeft") + g("mouthSmileRight")) / 2;
       const f: FaceState = {
-        g, t,
+        g, t, smile,
+        speech: speechOf(g, smile),
         mirror: ex.mirror,
         gesture: ex.gesture,
         mood: ex.mood,
         level: ex.moodLevel,
-        smile: (g("mouthSmileLeft") + g("mouthSmileRight")) / 2,
         jaw: g("jawOpen"),
         gx: clamp((g("eyeLookInRight") - g("eyeLookOutRight") + g("eyeLookOutLeft") - g("eyeLookInLeft")) / 2, -1, 1),
         gy: clamp((g("eyeLookDownLeft") + g("eyeLookDownRight") - g("eyeLookUpLeft") - g("eyeLookUpRight")) / 2, -1, 1),

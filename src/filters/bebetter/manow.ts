@@ -110,7 +110,7 @@ function questionMark(ctx: CanvasRenderingContext2D, kit: FaceKit, age: number, 
   ctx.restore();
 }
 
-function beak(ctx: CanvasRenderingContext2D, kit: FaceKit, open: number) {
+function beak(ctx: CanvasRenderingContext2D, kit: FaceKit, open: number, round = 0) {
   const { X, Y, S } = kit;
   const o = open * 26; // how far the lower mandible drops (small units)
   ctx.save();
@@ -134,12 +134,17 @@ function beak(ctx: CanvasRenderingContext2D, kit: FaceKit, open: number) {
     ctx.restore();
   }
   ctx.fillStyle = INK;
-  // lower mandible: a rounded scoop under the hook, drops with the jaw
+  // lower mandible: a rounded scoop under the hook, drops with the jaw (narrower on โอ/อู)
+  ctx.save();
+  ctx.translate(X(1), 0);
+  ctx.scale(1 - 0.2 * round, 1);
+  ctx.translate(-X(1), 0);
   ctx.beginPath();
   ctx.moveTo(X(-12), Y(33 + o * 0.7));
   ctx.bezierCurveTo(X(-12), Y(45 + o), X(11), Y(46 + o), X(13), Y(34 + o * 0.7));
   ctx.quadraticCurveTo(X(1), Y(39 + o * 0.85), X(-12), Y(33 + o * 0.7));
   ctx.fill();
+  ctx.restore();
   // upper beak: rounded top, curving down into a short hook whose tip leans right (like the sheet)
   ctx.beginPath();
   ctx.moveTo(X(-15), Y(15));
@@ -245,12 +250,12 @@ export function makeManow() {
       updateCrest(f, curious);
       kit.brows(ctx, { angry: mood === "angry" ? level : 0, sad: mood === "sad" ? level : 0, curious });
 
-      // beak opens with your jaw (a little when curious); ตะโกน = wide open
+      // beak talks along with you (a little open when curious); ตะโกน = wide open
       const bx = sideEye ? 2.2 * Math.sign(f.gx) : 0;
-      const open = Math.max(clamp(f.jaw / 0.45), curious * 0.35);
+      const open = Math.max(f.speech.open, curious * 0.35);
       ctx.save();
       ctx.translate(bx * S, 0);
-      beak(ctx, kit, open);
+      beak(ctx, kit, open, f.speech.round);
       ctx.restore();
 
       if (asking) questionMark(ctx, kit, f.gesture!.age, f.mirror);
