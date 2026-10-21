@@ -31,7 +31,7 @@ export class Tracker {
     try {
       return new Tracker(await make("GPU"));
     } catch (err) {
-      console.warn("[CuteCam] GPU delegate failed, falling back to CPU", err);
+      console.warn("[BeBetterCam] GPU delegate failed, falling back to CPU", err);
       return new Tracker(await make("CPU"));
     }
   }
@@ -61,7 +61,7 @@ export class HandTracker {
     try {
       return new HandTracker(await make("GPU"));
     } catch (err) {
-      console.warn("[CuteCam] hand GPU delegate failed, falling back to CPU", err);
+      console.warn("[BeBetterCam] hand GPU delegate failed, falling back to CPU", err);
       return new HandTracker(await make("CPU"));
     }
   }

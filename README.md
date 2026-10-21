@@ -1,4 +1,4 @@
-# 🐱 Cute Cam: a cute camera filter for Discord / MS Teams
+# 🐱 BeBetter Cam: a cute camera filter for Discord / MS Teams
 
 A web app that adds animal ears 🐱🐶🐰🐻 plus effects that react to your face, using MediaPipe Face Landmarker. It sends the picture into meetings through the **OBS Virtual Camera**.
 
@@ -111,14 +111,14 @@ Close the Terminal window when the meeting is over.
 
 ## Using it in Discord / MS Teams (macOS)
 1. Install [OBS Studio](https://obsproject.com/) (free).
-2. Open Cute Cam as a dedicated window with no address bar (the flags stop Chrome from pausing the page when the window is covered):
+2. Open BeBetter Cam as a dedicated window with no address bar (the flags stop Chrome from pausing the page when the window is covered):
    ```bash
    open -na "Google Chrome" --args --app="http://localhost:5173/?clean=1" \
      --disable-backgrounding-occluded-windows --disable-renderer-backgrounding \
      --user-data-dir=/tmp/cutecam-chrome
    ```
    Allow camera access when asked.
-3. In OBS → Sources → **+** → **macOS Screen Capture** → Method: *Window* → pick the Cute Cam window.
+3. In OBS → Sources → **+** → **macOS Screen Capture** → Method: *Window* → pick the BeBetter Cam window.
    Right-click the source → Transform → **Fit to screen**. Set the canvas to 1280×720 under Settings → Video.
 4. Click **Start Virtual Camera** (bottom right).
 5. In Discord: Settings → Voice & Video → Camera → **OBS Virtual Camera**.
@@ -129,4 +129,4 @@ Close the Terminal window when the meeting is over.
 > Choose green, then in OBS right-click the source → Filters → **Chroma Key** to get a transparent mascot.
 
 > In meeting mode the picture is **not mirrored**, because Discord/Teams already mirror your self-view. Other people see you the right way round.
-> The Cute Cam window should not be minimized. It can sit behind other windows.
+> The BeBetter Cam window should not be minimized. It can sit behind other windows.

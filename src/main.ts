@@ -90,7 +90,7 @@ buildUi({
 });
 
 function showError(err: unknown) {
-  console.error("[CuteCam]", err);
+  console.error("[BeBetterCam]", err);
   const name = (err as Error)?.name;
   setStatus(
     name === "NotAllowedError" ? "ยังไม่ได้รับอนุญาตให้ใช้กล้อง กดอนุญาตที่แถบที่อยู่ แล้วรีโหลดหน้านี้" :
@@ -111,7 +111,7 @@ function ensureHands() {
   handLoading = true;
   HandTracker.create()
     .then((h) => (handTracker = h))
-    .catch((err) => console.warn("[CuteCam] hand tracking unavailable", err));
+    .catch((err) => console.warn("[BeBetterCam] hand tracking unavailable", err));
 }
 
 // pinned mascot: face center at this fraction of the height, face width as a fraction of the height
@@ -216,7 +216,7 @@ async function start() {
     setStatus("");
     loop(tracker);
   } catch (err) {
-    console.error("[CuteCam]", err);
+    console.error("[BeBetterCam]", err);
     setStatus(`โหลดตัวจับใบหน้าไม่สำเร็จ ลองรีโหลดหน้านี้ หรือเปิดการเร่งกราฟิก (hardware acceleration) ในเบราว์เซอร์ · ${(err as Error)?.message ?? err}`, "error");
   }
 }
